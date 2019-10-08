@@ -13,6 +13,8 @@ devtools::source_url(link_source)
 
 # 2. Paràmetres  ----------------------
 
+# Ahir el PEPE no va venir
+
 # fitxer conductor cataleg 
 fitxer_conductor_cataleg<-"cataleg.xls"
 
