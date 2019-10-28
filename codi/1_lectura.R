@@ -50,6 +50,7 @@ table(dt_farmacia$PPFMC_ATCCODI)
 dt_cips <- readxl::read_excel("./dades/Cips.xls")
 dt_dades <- openxlsx::read.xlsx("./dades/General.xlsx",sheet=1)
 
+
 dt_visites <- read.csv(here::here("dades", "visites.csv"), sep=";") %>% as_tibble()
 
 #Comprobar CIPS 
@@ -170,30 +171,35 @@ dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.ag
 dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                                            finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="agr")
 
+dt_events.agregada<-dt_events.agregada %>% select(-dtindex)
+
 # 5.2. Agregar variables basals 
 dt_variables <-dt_variables %>% mutate(idp=VU_COD_U,dat=VU_DAT_ACT,val=VU_VAL,cod=agr)
 dt_variables.agregada<-agregar_analitiques(dt_variables,bd.dindex ="20070101",finestra.dies=c(-365,0),sufix = c(".valor", ".dies"))
+dt_variables.agregada<-dt_variables.agregada %>% select(-dtindex)
 
 # 5.3. Agregar laboratori 
 dt_laboratori <-dt_laboratori %>% mutate(idp=VU_COD_U,dat=VU_DAT_ACT,val=VU_VAL,cod=agr)
 dt_lab.agregada<-agregar_analitiques(dt_laboratori,bd.dindex ="20070101",finestra.dies=c(-365,0),sufix = c(".valor", ".dies"))
+dt_lab.agregada<-dt_lab.agregada %>% select(-dtindex)
 
 # 5.4. Agregar vacunes
 dt_vacunes <- dt_vacunes %>% mutate(idp=VA_U_USUA_CIP,dat=VA_U_DATA_VAC,val=1,cod=VA_U_COD)
 dt_vac.agregada<-agregar_analitiques(dt_vacunes,bd.dindex ="20171231",finestra.dies=c(-Inf,0),sufix = c(".valor", ".dies"))
+dt_vac.agregada<-dt_vac.agregada %>% select(-dtindex)
 
 # 5.5 Farmacs 
 dt_farmacia<-dt_farmacia %>% mutate(idp=PPFMC_PMC_USUARI_CIP,cod=PPFMC_ATCCODI,dat=data.to.string(PPFMC_DATA_INI_SIRE),dbaixa=data.to.string(PPFMC_DATA_FI_SIRE))
 dt_farmacs_agregada<-agregar_prescripcions(dt=dt_farmacia,bd.dindex=20091231,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(0,0),camp_agregador="agr",agregar_data=F)
 
 # 5.6 Visites
-dt_visites$any <- make_date(year=dt_visites$any)
+dt_visites$any <- lubridate::make_date(year=dt_visites$any)
 str(dt_visites$any)
 dt_visites
 
 dt_visites <- dt_visites %>% mutate(idp=cip, dat=any, cod=servei)
-dt_visites.agregada <- agregar_visites(dt_visites, bd.dindex = "20070101", finestra.dies = c(-365, Inf))
-
+dt_visites.agregada <- agregar_visites(dt_visites, bd.dindex = "20070101", finestra.dies = c(-365, +Inf),N="N")
+dt_visites.agregada<-dt_visites.agregada %>% select(-dtindex)
 
 # 6. Fusionar taules en una --------------
 
@@ -209,6 +215,8 @@ dt_lab.agregada<-dt_lab.agregada %>% rename(CIP=idp)
 dt_vac.agregada<-dt_vac.agregada %>% rename(CIP=idp)
 dt_dem.agregada <- dt_demografiques %>% rename(CIP = CIP) 
 dt_datos.agregada <- dt_datos %>% rename (CIP = CIP)
+dt_visites.agregada<-dt_visites.agregada %>% rename(CIP=idp)
+
 
 dt_total <- dt_cips %>% 
   left_join(dt_antecedents.agregada,by="CIP") %>% 
@@ -217,9 +225,10 @@ dt_total <- dt_cips %>%
   left_join(dt_variables.agregada,by="CIP") %>% 
   left_join(dt_vac.agregada,by="CIP") %>%
   left_join(dt_dem.agregada, by="CIP") %>%
+  left_join(dt_visites.agregada,by="CIP") %>% 
   left_join(dt_datos.agregada,by="CIP")
 
-names(dt_total)
+
 #DT_TOTAL tenemos lo necesario para calcular la incidencia; Tenemos en cuenta 5 escenarios; 
 # 1. Evento Tuberculosis--> Fecha Fin de Seguimiento DET_TB
 # 2. Ni muere ni TB --> Fecha Fin de Seguimiento ultima detección de TB 
@@ -238,9 +247,11 @@ dt_total <- dt_total[!duplicated(dt_total$CIP),]
 dim(dt_total)
 table(dt_total$Mostra)
 
+dt_total<-as_tibble(dt_total)
+
 
 #Convertimos DET_TB en Fecha 
-dt_total$DET_TB <- as.Date(dt_total$DET_TB, origin="1899-12-30")
+dt_total$DET_TB <- as.Date(as.numeric(dt_total$DET_TB), origin="1899-12-30")
 
 #Creo una Variable con fecha de Inicio en 01/01/2007, Inclusión de todos los pacientes, Casos (DM) / Controles (No DM)
 dt_total$dat_inici <- rep("2007-01-01", 33258 )
@@ -259,16 +270,21 @@ dt_total$final_dm <- as.character(dt_total$final_dm)
 dt_total <- dt_total %>% mutate(event_tb = if_else(is.na(DET_TB), 0,1))
 dt_total$event_tb <- as.character(dt_total$event_tb)
 
+table(dt_total$event_tb,dt_total$Mostra)
+
 
 require(data.table)
-dt_total <- data.table(dt_total)
+# dt_total <- data.table(dt_total)
 
 #CRITERIOS EXCLUSION 
 #Todos los que se les haya detectado TB antes del 01/01/2007
-dt_total <- dt_total[(DET_TB >= dat_inici | is.na(DET_TB))]   #Eliminados todos los TB antes del 2007
-#Todos los muertos (situacio = D) antes del 01/01/2007 el resto los dejamos 
-dt_total <- dt_total[(situacio == "D" & dsituacio > dat_inici) | situacio %in% c("A", "T")] 
 
+dt_total<-dt_total %>% filter((DET_TB >= dat_inici | is.na(DET_TB))) #Eliminados todos los TB antes del 2007
+#Todos los muertos (situacio = D) antes del 01/01/2007 el resto los dejamos 
+dt_total <- dt_total %>% filter((situacio == "D" & dsituacio > dat_inici) | situacio %in% c("A", "T"))
+
+# Elimino Espais en blanc de base de dades 
+dt_total<-dt_total %>% netejar_espais()
 
 #TIEMPOS; 
 #Si se detecta TB fecha fin esa fecha, 
@@ -276,23 +292,30 @@ dt_total <- dt_total[(situacio == "D" & dsituacio > dat_inici) | situacio %in% c
 #Si es control y se detecta DM , esa fecha de diagnostico 
 #SINO Fecha Fin (Ultima detección de TB)
 
-dt_total$dat_fi <- rep("2018-02-15", 30275)
-dt_total$dat_fi <- as.Date(dt_total$dat_fi)
+dt_total <- dt_total %>% 
+  mutate(dat_fi=as.Date("2018-02-15"),
+                   data_final = case_when(
+                     Mostra == "CONTROLS" & EV.DM < DET_TB ~ EV.DM,   # Controls converits a DM --> Data DM
+                      !is.na(DET_TB) ~ DET_TB,                         # Si TBC --> data de TBC 
+                      is.na(DET_TB) & situacio != "D" ~ dat_fi,        # Si no TBC --> data fi
+                      is.na(DET_TB) & situacio == "D" ~ dsituacio)     # Si no TBC --> data defunció
+                       )
 
-dt_total <- mutate(dt_total, data_final = 
-                    case_when(
-                      (Mostra == "CONTROLS " & EV.DM < DET_TB) ~ EV.DM,
-                      !is.na(DET_TB) ~ DET_TB, 
-                      is.na(DET_TB) & situacio != "D" ~ dat_fi, 
-                      is.na(DET_TB) & situacio == "D" ~ dsituacio,
-                       ))
-
-dplyr::select(dt_total, DET_TB, situacio, Mostra, dsituacio, dat_fi, data_final) %>% filter(Mostra == "CONTROLS ")
+# Verificació de data final 
+dplyr::select(dt_total, DET_TB, situacio, Mostra, dsituacio, dat_fi, data_final) %>% filter(Mostra == "CONTROLS")
+dplyr::select(dt_total, DET_TB, situacio, Mostra, dsituacio, dat_fi, data_final) %>% filter(DET_TB>0)
+dplyr::select(dt_total, DET_TB, situacio, Mostra, dsituacio, dat_fi, data_final) %>% filter(is.na(DET_TB) & situacio == "D")
 
 #Calcular Temps de Seguiment 
 summary(dt_total$data_final)
 sum(dt_total$data_final > dt_total$dat_fi)
 #Tenemos 409 individuos que tienes fecha de Defuncion despues de 15/02/2018, ultima detección de TB 
+
+# Individuos que cualquier evento (TBC o muerte es posterior a fin 15/02/2018, se censura)
+# Fecha máxima de censura --> 15/02/2018 
+dt_total<-dt_total %>% mutate(data_final=if_else(data_final>as.Date("2018-02-15"),as.Date("2018-02-15"),data_final))
+
+#
 
 #TRABAJAMOS LOS TIEMPOS EN GENERAL 
 dt_total$dies <- dt_total$data_final - dt_total$dat_inici    #DIES DE SEGUIMENT 
@@ -305,7 +328,6 @@ dt_total$anys <- dt_total$mesos / 12
 dt_total$anys <- as.numeric(dt_total$anys)
 dt_total$anys <- round(dt_total$anys, 1)
 
-names(dt_total)
 
 #CURVAS DE SUPERVIVENCIA 
 
@@ -379,5 +401,10 @@ survfit(Z_Surv ~ dt_total$Mostra, dt_total, conf.type = "log-log") %>%
   ggsurvplot(title="TB detection in patient with or without DM",
              p.val=T, xlab="Time (Years)", censor=F, linetype="strata",
              fun="event", cumevents = T, xlim=c(0,13))
+
+
+# 9 Generar fitxer de variables 
+
+write.csv2(names(dt_total),"variables.csv")
 
 
