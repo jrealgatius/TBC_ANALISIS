@@ -10,6 +10,7 @@ rm(list=ls())
 link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
 devtools::source_url(link_source)
 
+#CANVI
 
 # 2. Paràmetres  ----------------------
 
