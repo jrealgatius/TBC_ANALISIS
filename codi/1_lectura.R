@@ -403,6 +403,10 @@ survfit(Z_Surv ~ dt_total$Mostra, dt_total, conf.type = "log-log") %>%
              fun="event", cumevents = T, xlim=c(0,13))
 
 
+
+saveRDS(dt_total,here::here("dades","dades.RDS"))
+
+
 # 9 Generar fitxer de variables 
 
 write.csv2(names(dt_total),"variables.csv")

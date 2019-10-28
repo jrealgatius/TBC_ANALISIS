@@ -1,0 +1,121 @@
+---
+title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
+author: "Elena Navas & Jordi Real"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls())
+
+# Lectura de funcions -------------
+#   SOURCE
+link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+devtools::source_url(link_source)
+
+library("compareGroups")
+library("knitr")
+library("dplyr")
+
+# Paràmetres
+conductor_variables<-here::here("variables_tbc.xls")
+
+
+
+# Lectura de dades ---------------
+dades<-readRDS(here::here("dades","dades.RDS"))
+
+
+```
+
+# Objectivos
+
+## Objetivo principal
+
+- Analizar la relación epidemiológica y los factores asociados entre la DM y la TB en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona).
+- Conocer el riesgo de TB entre la población con DM en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona) para identificar subgrupos de alto riesgo y potencialmente susceptibles de cribado de TB.
+
+
+## Objetivos secundarios 
+
+- 1. Comparar la evolución de la prevalencia de la DM y de la TB en el periodo 2006 al 2015 en el distrito de Ciutat Vella, un entorno de alta prevalencia de TB.
+- 2.	Conocer la prevalencia y la incidencia de TB entre la población con DM con respecto a la población no diabética.
+- 3.	Analizar si el grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
+- 4.	Analizar el papel de la inmigración en la relación entre DM y TB.
+
+
+```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+
+# Formateig ----------------
+
+# Calcul de variables noves edat etc..
+
+
+
+
+# Etiquetació de variables  -----------
+
+
+dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
+
+
+```
+
+
+```{r exclusions, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+
+# EXCLUSIONS
+
+
+
+
+
+```
+
+# Analisis exploratori 
+
+## Descriptiva Basal 
+
+```{r analisis1, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+
+# T BASAL -------------
+formula<-formula_compare("basales",y="Mostra",taulavariables = conductor_variables)
+T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
+export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+
+formula<-formula_compare("events",y="Mostra",taulavariables = conductor_variables)
+T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
+export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+
+
+```
+
+
+## Descriptiva i comparativa de variables resultat (Outcomes)
+
+```{r analisis2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+
+
+
+library(survminer)
+
+Z_Surv  <- Surv(dades$any_TB, dades$event_tb)
+
+survfit(Z_Surv ~ dades$Mostra, dades, conf.type = "log-log") %>%
+  ggsurvplot(title="TB detection in patient with or without DM",
+             p.val=T, xlab="Time (Years)", censor=F, linetype="strata",
+             fun="event", cumevents = T, xlim=c(0,13))
+
+
+
+
+# 
+
+```
+
+
+
