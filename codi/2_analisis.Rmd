@@ -48,13 +48,48 @@ dades<-readRDS(here::here("dades","dades.RDS"))
 - 4.	Analizar el papel de la inmigración en la relación entre DM y TB.
 
 
+-----
+
+## Hecho: 
+
+- Lectura de tablas de historicos de E-Cap proporcionadas por Basic
+- Agregación a fecha de inclusión (1/2007)
+- vinculación de tablas en una
+- Descriptivo inicial exploratorio
+- Analisis de associación de DM versus TBC
+
+
+## Pendiente: 
+
+- Depurar base de datos
+- Estimación de tasas
+- Analisis por objetivos
+
+## Consideraciones / limitaciones:
+
+- Base de datos de fármacos solo disponible apartir de 2009 --> agregación en fecha 2009
+- Base de datos vacunas no disponible anterior a 2007
+- Reclasificados expuestos diabeticos en fecha de inclusión
+- Possible infraregistro de diagnosticos en 2007
+- Missings
+
+
 ```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
 
 # Formateig ----------------
 
+# Netejar noms de variables 
+dades<-netejar.noms.variables(dades)
+# Espais en blanc
+dades<-netejar_espais(dades)
+
 # Calcul de variables noves edat etc..
 
 
+# Recode dates / factorització 
+dades<-dades %>% mutate_at(vars(starts_with("DG."),starts_with("EV.")), ~if_else(is.na(.),"No","Si"))
+
+dades<-dades %>% mutate_at(vars("event_tb"), ~if_else(is.na(.) | .==0,"No","Si"))
 
 
 # Etiquetació de variables  -----------
@@ -83,29 +118,63 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 ```{r analisis1, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
 # T BASAL -------------
-formula<-formula_compare("basales",y="Mostra",taulavariables = conductor_variables)
+
+formula<-formula_compare(x="basales",y="DG.DM",taulavariables = conductor_variables)
 T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
 export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
 
-formula<-formula_compare("events",y="Mostra",taulavariables = conductor_variables)
+formula<-formula_compare("events",y="DG.DM",taulavariables = conductor_variables)
 T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
 export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+
+kable(calcular_proporcio(dades,factor ="descNacionalitat" ),digits = 3) %>% kableExtra::kable_styling()
+
+kable(calcular_proporcio(dades,factor ="paisNaixement" ),digits = 3) %>% kableExtra::kable_styling()
+
 
 
 ```
 
 
-## Descriptiva i comparativa de variables resultat (Outcomes)
+## Incidencia de TBC en funció de DM i caracteristiques basals (Outcomes)
 
 ```{r analisis2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
+# T BASAL -------------
 
+
+kable(resum_events(dades = dades,evento="event_tb",temps="any_TB",valorevent = "Si"),caption="Resum d'events") %>% kableExtra::kable_styling()
+
+
+taula_IA_grup<-dades %>% split(dades$DG.DM) %>% 
+  map(~resum_events(dades = .x,evento="event_tb",temps="any_TB",valorevent = "Si")) %>% 
+  map(as_tibble) %>% 
+  map_df(bind_rows,.id = "grup") %>% 
+  as_tibble()
+
+
+kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
+
+
+dades$Z_Surv  <- Surv(dades$any_TB, dades$event_tb=="Si")
+formula<-formula_compare("basales",y="Z_Surv",taulavariables = conductor_variables)
+T2_BASAL<-descrTable(formula,data=dades,show.p.overall = T,show.n = T, show.ratio = T)
+export2md(T2_BASAL,caption = "HR de TBC segons caracterítiques basals entre grups")
+
+
+
+
+
+```
+
+
+
+```{r analisis3, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
 library(survminer)
+Z_Surv  <- Surv(dades$any_TB, dades$event_tb=="Si")
 
-Z_Surv  <- Surv(dades$any_TB, dades$event_tb)
-
-survfit(Z_Surv ~ dades$Mostra, dades, conf.type = "log-log") %>%
+survfit(Z_Surv ~ dades$DG.DM, dades, conf.type = "log-log") %>%
   ggsurvplot(title="TB detection in patient with or without DM",
              p.val=T, xlab="Time (Years)", censor=F, linetype="strata",
              fun="event", cumevents = T, xlim=c(0,13))

@@ -166,7 +166,7 @@ dt_psalut<-dt_psalut %>% mutate(cod=stringr::str_sub(new_codiPSalut,1,5),
 
 # Antecedents
 dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
-                      finestra.dies = c(-Inf,0),prefix="DG.",camp_agregador="agr")
+                      finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="agr")
 
 # Events 
 dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
@@ -176,17 +176,17 @@ dt_events.agregada<-dt_events.agregada %>% select(-dtindex)
 
 # 5.2. Agregar variables basals 
 dt_variables <-dt_variables %>% mutate(idp=VU_COD_U,dat=VU_DAT_ACT,val=VU_VAL,cod=agr)
-dt_variables.agregada<-agregar_analitiques(dt_variables,bd.dindex ="20070101",finestra.dies=c(-365,0),sufix = c(".valor", ".dies"))
+dt_variables.agregada<-agregar_analitiques(dt_variables,bd.dindex ="20070101",finestra.dies=c(-365,+1),sufix = c(".valor", ".dies"))
 dt_variables.agregada<-dt_variables.agregada %>% select(-dtindex)
 
 # 5.3. Agregar laboratori 
 dt_laboratori <-dt_laboratori %>% mutate(idp=VU_COD_U,dat=VU_DAT_ACT,val=VU_VAL,cod=agr)
-dt_lab.agregada<-agregar_analitiques(dt_laboratori,bd.dindex ="20070101",finestra.dies=c(-365,0),sufix = c(".valor", ".dies"))
+dt_lab.agregada<-agregar_analitiques(dt_laboratori,bd.dindex ="20070101",finestra.dies=c(-365,+1),sufix = c(".valor", ".dies"))
 dt_lab.agregada<-dt_lab.agregada %>% select(-dtindex)
 
 # 5.4. Agregar vacunes
 dt_vacunes <- dt_vacunes %>% mutate(idp=VA_U_USUA_CIP,dat=VA_U_DATA_VAC,val=1,cod=VA_U_COD)
-dt_vac.agregada<-agregar_analitiques(dt_vacunes,bd.dindex ="20171231",finestra.dies=c(-Inf,0),sufix = c(".valor", ".dies"))
+dt_vac.agregada<-agregar_analitiques(dt_vacunes,bd.dindex ="20171231",finestra.dies=c(-Inf,+1),sufix = c(".valor", ".dies"))
 dt_vac.agregada<-dt_vac.agregada %>% select(-dtindex)
 
 # 5.5 Farmacs 
