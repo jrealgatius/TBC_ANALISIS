@@ -52,26 +52,29 @@ dades<-readRDS(here::here("dades","dades.RDS"))
 
 ## Hecho: 
 
-- Lectura de tablas de historicos de E-Cap proporcionadas por Basic
-- Agregación a fecha de inclusión (1/2007)
+- Lectura de tablas de históricos de E-Cap proporcionadas por Basic
+- Agregación en fecha de inclusión (1/2007)
 - vinculación de tablas en una
+- Cálculo de variables
 - Descriptivo inicial exploratorio
-- Analisis de associación de DM versus TBC
+- Análisis de associación de DM versus TBC
+- Estimación de incidéncias
 
 
 ## Pendiente: 
 
-- Depurar base de datos
-- Estimación de tasas
-- Analisis por objetivos
+- Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
+- Etiquetar variables
+- Análisis por objetivos
+- Reanálisis cohorte dinámica
 
 ## Consideraciones / limitaciones:
 
-- Base de datos de fármacos solo disponible apartir de 2009 --> agregación en fecha 2009
-- Base de datos vacunas no disponible anterior a 2007
-- Reclasificados expuestos diabeticos en fecha de inclusión
+- No hay datos de fármacos en fecha basal (Solamente a partir de 2009) --> agregación hecha en fecha 2009
+- Base de datos vacunas solo disponible a partir de 12/2007 (No en basal)
+- Reclasificados expuestos diabeticos en fecha de inclusión (1/2007)
 - Possible infraregistro de diagnosticos en 2007
-- Missings
+- Alto número de valores faltantes
 
 
 ```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
@@ -84,6 +87,10 @@ dades<-netejar.noms.variables(dades)
 dades<-netejar_espais(dades)
 
 # Calcul de variables noves edat etc..
+
+library(lubridate)
+dades<-dades %>% mutate(dtindex=ifelse(is.na(dtindex),"20070101",dtindex),
+                 age=as.period(interval(start =dNaixement , end = ymd(dtindex))) %>% year()) 
 
 
 # Recode dates / factorització 
@@ -115,25 +122,37 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 
 ## Descriptiva Basal 
 
-```{r analisis1, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+```{r analisis1, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge", error=FALSE}
 
 # T BASAL -------------
 
 formula<-formula_compare(x="basales",y="DG.DM",taulavariables = conductor_variables)
 T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+taula1<-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
 
 formula<-formula_compare("events",y="DG.DM",taulavariables = conductor_variables)
 T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+taula2<-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
 
-kable(calcular_proporcio(dades,factor ="descNacionalitat" ),digits = 3) %>% kableExtra::kable_styling()
+taula3<-kable(calcular_proporcio(dades,factor ="descNacionalitat" ),digits = 3) %>% kableExtra::kable_styling()
 
-kable(calcular_proporcio(dades,factor ="paisNaixement" ),digits = 3) %>% kableExtra::kable_styling()
 
 
 
 ```
+
+```{r}
+
+taula1
+
+taula2
+
+taula3
+
+
+
+```
+
 
 
 ## Incidencia de TBC en funció de DM i caracteristiques basals (Outcomes)
@@ -146,7 +165,7 @@ kable(calcular_proporcio(dades,factor ="paisNaixement" ),digits = 3) %>% kableEx
 kable(resum_events(dades = dades,evento="event_tb",temps="any_TB",valorevent = "Si"),caption="Resum d'events") %>% kableExtra::kable_styling()
 
 
-taula_IA_grup<-dades %>% split(dades$DG.DM) %>% 
+taula_IA_grup<-dades %>% base::split(dades$DG.DM) %>% 
   map(~resum_events(dades = .x,evento="event_tb",temps="any_TB",valorevent = "Si")) %>% 
   map(as_tibble) %>% 
   map_df(bind_rows,.id = "grup") %>% 
