@@ -149,6 +149,14 @@ dt_demografiques$descNacionalitat <- as.character(dt_demografiques$descNacionali
 dt_demografiques$paisNaixement <- as.character(dt_demografiques$paisNaixement)
 dt_demografiques$descUP <- as.character(dt_demografiques$descUP)
 
+
+dt_demografiques %>% filter(year(dNaixement) >= 2000)
+dt_demografiques$NAIX <- as.Date(ifelse(year(dt_demografiques$dNaixement) >= 2000, dt_demografiques$dNaixement - 36525,
+                                 dt_demografiques$dNaixement), origin= "1970-01-01") 
+
+summary(dt_demografiques$NAIX)
+
+
 #4.7 DT_VISITES
 dt_visites
 dt_visites$cip <- as.character(dt_visites$cip)
@@ -412,4 +420,20 @@ saveRDS(dt_total,here::here("dades","dades.RDS"))
 
 write.csv2(names(dt_total),"variables.csv")
 
+
+#Agafats CIPS de dt_total i aqui he agregat els problemes de salut per CIP i despres el Agregadors de CATALEG per codi, 
+dt_total
+dt1 <- dt_total[,1]
+
+dt_psalut <- dt_psalut %>% rename(CIP = cipACT)
+
+dt1 <- dt1 %>% 
+  left_join(dt_psalut, by="CIP")
+
+dt_problemes <- dt1 %>%
+  left_join(CATALEG, by="cod")
+
+names(dt_problemes)
+table(dt_problemes$cod)
+table(dt_problemes$agr)
 
