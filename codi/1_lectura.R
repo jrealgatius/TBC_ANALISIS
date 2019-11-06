@@ -427,13 +427,32 @@ dt1 <- dt_total[,1]
 
 dt_psalut <- dt_psalut %>% rename(CIP = cipACT)
 
+dt_psalut_historic<-dt_psalut %>% 
+  left_join(select(CATALEG,cod,agr)) %>% select(codiPSalut,cod,dat,agr,CIP) %>% 
+  semi_join(dt1,by="CIP")
+
+
+dt_psalut %>% group_by(cod) %>% summarize(n(), min(dat),max(dat)) %>% datatable()
+
+dt_psalut_historic %>% group_by(cod,agr) %>% summarize(n(), min(dat),max(dat)) %>% datatable()
+
+saveRDS(dt_psalut_historic, here::here("dades", "psalut_historic.RDS"))
+saveRDS(dt_psalut, here::here("dades", "psalut.RDS"))
+
+
+table(dt_psalut_historic$agr) %>% sum()
+
+dt_psalut_historic %>% filter(is.na(agr)) %>% select(cod) %>% unique()
+
+
+table(dt_psalut$agr)
+
+CATALEG
+
 dt1 <- dt1 %>% 
   left_join(dt_psalut, by="CIP")
 
 dt_problemes <- dt1 %>%
   left_join(CATALEG, by="cod")
 
-names(dt_problemes)
-table(dt_problemes$cod)
-table(dt_problemes$agr)
 

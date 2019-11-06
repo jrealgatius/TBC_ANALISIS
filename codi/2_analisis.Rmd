@@ -28,6 +28,8 @@ conductor_variables<-here::here("variables_tbc.xls")
 
 # Lectura de dades ---------------
 dades<-readRDS(here::here("dades","dades.RDS"))
+psalut_historic <- readRDS(here::here("dades", "psalut_historic.RDS"))
+psalut <- readRDS(here::here("dades", "psalut.RDS"))
 
 
 ```
@@ -93,6 +95,7 @@ dades<-dades %>% mutate(dtindex=ifelse(is.na(dtindex),"20070101",dtindex),
                  age=as.period(interval(start =dNaixement , end = ymd(dtindex))) %>% year()) 
 
 
+
 # Recode dates / factorització 
 dades<-dades %>% mutate_at(vars(starts_with("DG."),starts_with("EV.")), ~if_else(is.na(.),"No","Si"))
 
@@ -117,6 +120,16 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 
 
 ```
+
+
+```{r exploratori, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge", error=FALSE}
+
+
+
+
+
+```
+
 
 # Analisis exploratori 
 
