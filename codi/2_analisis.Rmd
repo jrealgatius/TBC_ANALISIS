@@ -20,10 +20,12 @@ devtools::source_url(link_source)
 library("compareGroups")
 library("knitr")
 library("dplyr")
+library("lubridate")
+library("DT")
+
 
 # Paràmetres
 conductor_variables<-here::here("variables_tbc.xls")
-
 
 
 # Lectura de dades ---------------
@@ -31,6 +33,10 @@ dades<-readRDS(here::here("dades","dades.RDS"))
 psalut_historic <- readRDS(here::here("dades", "psalut_historic.RDS"))
 psalut <- readRDS(here::here("dades", "psalut.RDS"))
 
+dt_historic_farmacs <- readRDS(here::here("dades", "dt_historic_farmacs.RDS"))
+dt_farmacs <- readRDS(here::here("dades", "dt_farmacs.RDS"))
+
+variables<-readxl::read_excel(conductor_variables,col_types = "text")
 
 ```
 
@@ -57,6 +63,7 @@ psalut <- readRDS(here::here("dades", "psalut.RDS"))
 - Lectura de tablas de históricos de E-Cap proporcionadas por Basic
 - Agregación en fecha de inclusión (1/2007)
 - vinculación de tablas en una
+- Depuración de errores (Eliminación de duplicados, valores negativos .....)
 - Cálculo de variables
 - Descriptivo inicial exploratorio
 - Análisis de associación de DM versus TBC
@@ -90,16 +97,18 @@ dades<-netejar_espais(dades)
 
 # Calcul de variables noves edat etc..
 
-library(lubridate)
+
 dades<-dades %>% mutate(dtindex=ifelse(is.na(dtindex),"20070101",dtindex),
-                 age=as.period(interval(start =dNaixement , end = ymd(dtindex))) %>% year()) 
-
-
+                 age=as.period(interval(start =NAIX , end = ymd(dtindex))) %>% year()) 
 
 # Recode dates / factorització 
-dades<-dades %>% mutate_at(vars(starts_with("DG."),starts_with("EV.")), ~if_else(is.na(.),"No","Si"))
+dades<-dades %>% mutate_at(vars(starts_with("DG."),starts_with("EV.")), ~if_else(is.na(.),"No","Si")) # Diagnostics
+dades<-dades %>% mutate_at(vars("event_tb"), ~if_else(is.na(.) | .==0,"No","Si")) # Events 
+dades<-dades %>% mutate_at(vars(starts_with("P_G_")), ~if_else(is.na(.),"No","Si")) # Vacunes
 
-dades<-dades %>% mutate_at(vars("event_tb"), ~if_else(is.na(.) | .==0,"No","Si"))
+# Recode rangs de valors fora de l'interval a missings Reals (missings de valors reals)
+dades<-recode_to_missings(dades,taulavariables = conductor_variables,rang="rang_valid")
+
 
 
 # Etiquetació de variables  -----------
@@ -121,9 +130,24 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 
 ```
 
+## Resum d'historics de problemes de salut
 
-```{r exploratori, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge", error=FALSE}
+```{r exploratori, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge", error=FALSE}
 
+psalut %>% group_by(cod) %>% summarize(n(), min(dat),max(dat)) %>% datatable( caption="Problemes de salut historics originals")
+psalut_historic %>% group_by(cod,agr) %>% summarize(n(), min(dat),max(dat)) %>% datatable(caption="Problemes de Salut dels CIPS d'estudi")
+
+
+
+```
+
+## Exploratori d'historics de farmacs
+
+```{r exploratori2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge", error=FALSE}
+
+dt_historic_farmacs %>% group_by(cod) %>% summarize(n(), mindata=min(data_ini,na.rm=T),maxdata=max(data_ini,na.rm=T)) %>% datatable( caption="Fàrmacs historics originals")
+
+dt_farmacs %>% group_by(cod,agr) %>% summarize(n(), mindata=min(data_ini,na.rm=T),maxdata=max(data_ini,na.rm=T)) %>% datatable(caption="Fàrmacs historics de CIPS de la taula")
 
 
 
@@ -184,16 +208,12 @@ taula_IA_grup<-dades %>% base::split(dades$DG.DM) %>%
   map_df(bind_rows,.id = "grup") %>% 
   as_tibble()
 
-
 kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
-
 
 dades$Z_Surv  <- Surv(dades$any_TB, dades$event_tb=="Si")
 formula<-formula_compare("basales",y="Z_Surv",taulavariables = conductor_variables)
 T2_BASAL<-descrTable(formula,data=dades,show.p.overall = T,show.n = T, show.ratio = T)
 export2md(T2_BASAL,caption = "HR de TBC segons caracterítiques basals entre grups")
-
-
 
 
 

@@ -51,7 +51,6 @@ table(dt_farmacia$PPFMC_ATCCODI)
 dt_cips <- readxl::read_excel("./dades/Cips.xls")
 dt_dades <- openxlsx::read.xlsx("./dades/General.xlsx",sheet=1)
 
-
 dt_visites <- read.csv(here::here("dades", "visites.csv"), sep=";") %>% as_tibble()
 
 #Comprobar CIPS 
@@ -263,8 +262,8 @@ dt_total<-as_tibble(dt_total)
 dt_total$DET_TB <- as.Date(as.numeric(dt_total$DET_TB), origin="1899-12-30")
 
 #Creo una Variable con fecha de Inicio en 01/01/2007, Inclusión de todos los pacientes, Casos (DM) / Controles (No DM)
-dt_total$dat_inici <- rep("2007-01-01", 33258 )
-dt_total$dat_inici <- as.Date(dt_total$dat_inici, origin = "1899-12-30")
+dt_total <- dt_total %>% mutate (dat_inici="2007-01-01",dat_inici=as.Date(dat_inici, origin = "1899-12-30"))
+
 
 #Creamos las Variables Antedecentes / Eventos / Final de Diabeticos 
 dt_total<-dt_total %>% mutate(ant_dm=if_else(is.na(DG.DM),0,1))
@@ -283,7 +282,6 @@ table(dt_total$event_tb,dt_total$Mostra)
 
 
 require(data.table)
-# dt_total <- data.table(dt_total)
 
 #CRITERIOS EXCLUSION 
 #Todos los que se les haya detectado TB antes del 01/01/2007
@@ -291,6 +289,11 @@ require(data.table)
 dt_total<-dt_total %>% filter((DET_TB >= dat_inici | is.na(DET_TB))) #Eliminados todos los TB antes del 2007
 #Todos los muertos (situacio = D) antes del 01/01/2007 el resto los dejamos 
 dt_total <- dt_total %>% filter((situacio == "D" & dsituacio > dat_inici) | situacio %in% c("A", "T"))
+
+dt_total$dsituacio %>% class()
+dt_total$dat_inici
+
+
 
 # Elimino Espais en blanc de base de dades 
 dt_total<-dt_total %>% netejar_espais()
@@ -382,9 +385,6 @@ survfit(Z_Surv ~ dt_total$Mostra, dt_total, conf.type = "log-log") %>%
 
 # 8. Salvar fitxer ---------------
 
-sum(dt_total$DET_TB > dt_total$dat_fi, na.rm = T)
-(dt_total$dsituacio > dt_total$dat_fi)
-
 #SI AHORA CORTO LOS TIEMPOS TODOS A 15/02/2018
 dt_total <- mutate(dt_total, data_final_TB = 
                      case_when(
@@ -393,9 +393,6 @@ dt_total <- mutate(dt_total, data_final_TB =
                      ))
 
 
-summary(dt_total$data_final_TB)
-dt_total$dies_TB <- dt_total$data_final_TB - dt_total$dat_inici
-dt_total$dies_TB <- as.numeric(dt_total$dies_TB)
 
 dt_total$mesos_TB <- dt_total$dies_TB / 30.4
 dt_total$mesos_TB <- as.numeric(dt_total$mesos_TB)
@@ -421,38 +418,36 @@ saveRDS(dt_total,here::here("dades","dades.RDS"))
 write.csv2(names(dt_total),"variables.csv")
 
 
-#Agafats CIPS de dt_total i aqui he agregat els problemes de salut per CIP i despres el Agregadors de CATALEG per codi, 
-dt_total
-dt1 <- dt_total[,1]
+# 10 Capturar historics de problemes de salut i de farmacia
 
+#Agafats CIPS de dt_total i aqui he agregat els problemes de salut per CIP i despres el Agregadors de CATALEG per codi, 
+dt1 <- dt_total %>% select(CIP)
 dt_psalut <- dt_psalut %>% rename(CIP = cipACT)
 
 dt_psalut_historic<-dt_psalut %>% 
   left_join(select(CATALEG,cod,agr)) %>% select(codiPSalut,cod,dat,agr,CIP) %>% 
   semi_join(dt1,by="CIP")
 
-
+library(DT)
 dt_psalut %>% group_by(cod) %>% summarize(n(), min(dat),max(dat)) %>% datatable()
-
 dt_psalut_historic %>% group_by(cod,agr) %>% summarize(n(), min(dat),max(dat)) %>% datatable()
 
+
+dt_historic_farmacs<-dt_farmacia %>% 
+  select(CIP=idp,cod,data_ini=PPFMC_DATA_INI_SIRE,data_fi=PPFMC_DATA_FI_SIRE) %>% 
+  semi_join(dt1) %>% 
+  left_join(select(CATALEG,cod,agr) %>% unique())
+
+dt_farmacs<-dt_farmacia %>% 
+  select(CIP=idp,cod,data_ini=PPFMC_DATA_INI_SIRE,data_fi=PPFMC_DATA_FI_SIRE)%>% 
+  left_join(select(CATALEG,cod,agr) %>% unique())
+
+# Salvar historics
 saveRDS(dt_psalut_historic, here::here("dades", "psalut_historic.RDS"))
 saveRDS(dt_psalut, here::here("dades", "psalut.RDS"))
+saveRDS(dt_historic_farmacs, here::here("dades", "dt_historic_farmacs.RDS"))
+saveRDS(dt_farmacs, here::here("dades", "dt_farmacs.RDS"))
 
 
-table(dt_psalut_historic$agr) %>% sum()
-
-dt_psalut_historic %>% filter(is.na(agr)) %>% select(cod) %>% unique()
-
-
-table(dt_psalut$agr)
-
-CATALEG
-
-dt1 <- dt1 %>% 
-  left_join(dt_psalut, by="CIP")
-
-dt_problemes <- dt1 %>%
-  left_join(CATALEG, by="cod")
 
 
