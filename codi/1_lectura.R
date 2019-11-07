@@ -19,6 +19,10 @@ fitxer_conductor_cataleg<-"cataleg.xls"
 
 # fitxer conductor variables
 fitxer_conductor_variables<-"variables_tbc.xls"
+# fitxer conductor GENERAL
+fitxer_conductor_general<-"variables_general.xls"
+
+
 
 # 
 CATALEG<-readxl::read_excel(fitxer_conductor_cataleg,col_types = "text")
@@ -447,6 +451,39 @@ saveRDS(dt_psalut_historic, here::here("dades", "psalut_historic.RDS"))
 saveRDS(dt_psalut, here::here("dades", "psalut.RDS"))
 saveRDS(dt_historic_farmacs, here::here("dades", "dt_historic_farmacs.RDS"))
 saveRDS(dt_farmacs, here::here("dades", "dt_farmacs.RDS"))
+
+
+# Descriptiva Nomes TB 
+#(event_tb)
+
+#BBDD donde solo nos quedamos con los 201 incidentes TB 
+dt_tb <- dt_total %>% filter(event_tb == TRUE)
+
+#Cruzamos los CIPS de esta BBDD de tuberculosos con la dt_dades donde tenemos toda la información y lo hacemos por CIP 
+dt_tb <- dt_tb %>% select(CIP)
+dt_dades
+
+dim(dt_tb) #201 Tuberculosos
+
+dt_tuberculosos <- dt_tb %>% 
+  left_join(dt_dades, by="CIP")
+
+dim(dt_tuberculosos)
+length(unique(dt_tuberculosos$CIP)) == nrow(dt_tuberculosos) # FALSE, por lo tanto hay duplicados, 
+repet1 <- data.frame(table(dt_tuberculosos$CIP))
+repet1 <- repet1[repet1$Freq>1, ]
+length(repet1$Var1)
+dt_tuberculosos <- dt_tuberculosos[!duplicated(dt_tuberculosos$CIP),]
+dim(dt_tuberculosos)
+
+descrTable(dt_tuberculosos)                      
+
+
+
+# Factoritzar variables                              
+dt_tuberculosos<-factoritzar.NO.YES(dt_tuberculosos,"factoritzarSINO",fitxer_conductor_general)
+dt_tuberculosos<-factoritzar(dt_tuberculosos,extreure.variables("factoritzar",fitxer_conductor_general))
+
 
 
 
