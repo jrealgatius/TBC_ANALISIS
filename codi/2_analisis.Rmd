@@ -35,6 +35,8 @@ psalut <- readRDS(here::here("dades", "psalut.RDS"))
 
 dt_historic_farmacs <- readRDS(here::here("dades", "dt_historic_farmacs.RDS"))
 dt_farmacs <- readRDS(here::here("dades", "dt_farmacs.RDS"))
+dt_tuberculosos <- readRDS(here::here("dades", "dt_tuberculosos.RDS"))
+
 
 variables<-readxl::read_excel(conductor_variables,col_types = "text")
 
@@ -171,7 +173,7 @@ formula<-formula_compare("events",y="DG.DM",taulavariables = conductor_variables
 T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
 taula2<-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
 
-taula3<-kable(calcular_proporcio(dades,factor ="descNacionalitat" ),digits = 3) %>% kableExtra::kable_styling()
+# taula3<-kable(calcular_proporcio(dades,factor ="descNacionalitat" ),digits = 3) %>% kableExtra::kable_styling()
 
 
 
@@ -184,7 +186,7 @@ taula1
 
 taula2
 
-taula3
+# taula3
 
 
 
@@ -226,17 +228,28 @@ export2md(T2_BASAL,caption = "HR de TBC segons caracterítiques basals entre gru
 library(survminer)
 Z_Surv  <- Surv(dades$any_TB, dades$event_tb=="Si")
 
-survfit(Z_Surv ~ dades$DG.DM, dades, conf.type = "log-log") %>%
+survfit(Z_Surv ~ DG.DM+sexe, dades, conf.type = "log-log") %>%
   ggsurvplot(title="TB detection in patient with or without DM",
              p.val=T, xlab="Time (Years)", censor=F, linetype="strata",
              fun="event", cumevents = T, xlim=c(0,13))
-
-
 
 
 # 
 
 ```
 
+```{r analisis4, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge" }
+
+
+dades<-dades %>% mutate(event_tb_dic=event_tb=="Si")
+
+extreure_OR("event_tb_dic~DG.DM+age+sexe+visites_MG",dades=dades) %>% kable(digits=3)
+
+
+descrTable(dt_tuberculosos) %>% export2md(caption = "Descriptivo de casos detectados de TBC")
+
+
+
+```
 
 

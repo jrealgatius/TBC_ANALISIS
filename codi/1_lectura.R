@@ -264,6 +264,7 @@ dt_total <- dt_cips %>%
   left_join(dt_visites.agregada,by="CIP") %>% 
   left_join(dt_datos.agregada,by="CIP")
 
+dt_total<-dt_total %>% distinct()
 
 
 #DT_TOTAL tenemos lo necesario para calcular la incidencia; Tenemos en cuenta 5 escenarios; 
@@ -272,7 +273,7 @@ dt_total <- dt_cips %>%
 # 3. Muere --> Fecha Fin de Seguimiento Fecha Muerte
 # 4. Controls y detecció de DM --> Fecha Diagnostic DM 
 # 5. Controls, detecció DM i TBC --> Fecha Diagnostic TBC
-str(dt_total)
+
 
 #CIPS duplicados; 
 length(unique(dt_total$CIP)) == nrow(dt_total) # FALSE, por lo tanto hay duplicados, 
@@ -286,6 +287,13 @@ table(dt_total$Mostra)
 
 dt_total<-as_tibble(dt_total)
 
+# assignar totes les dates index i generar camp Mostra
+dt_total<-dt_total %>% mutate(dtindex="20070101")
+  
+dt_total<-dt_total %>% mutate(Mostra=if_else(DG.DM<=lubridate::ymd(20070101),"CASOS","CONTROLS"),
+                    Mostra=if_else(is.na(DG.DM),"CONTROLS",Mostra)) 
+
+
 
 #Convertimos DET_TB en Fecha 
 dt_total$DET_TB <- as.Date(as.numeric(dt_total$DET_TB), origin="1899-12-30")
@@ -298,6 +306,7 @@ dt_total <- dt_total %>% mutate (dat_inici="2007-01-01",dat_inici=as.Date(dat_in
 dt_total<-dt_total %>% mutate(ant_dm=if_else(is.na(DG.DM),0,1))
 dt_total<-dt_total %>% mutate(event_dm=if_else(is.na(EV.DM),0,1))
 dt_total<-dt_total %>% mutate(final_dm=if_else(event_dm | ant_dm,1,0))
+
 #Convierto las variables en caracter; 
 dt_total$ant_dm <- as.character(dt_total$ant_dm)
 dt_total$event_dm <- as.character(dt_total$event_dm)
@@ -319,8 +328,6 @@ dt_total<-dt_total %>% filter((DET_TB >= dat_inici | is.na(DET_TB))) #Eliminados
 #Todos los muertos (situacio = D) antes del 01/01/2007 el resto los dejamos 
 dt_total <- dt_total %>% filter((situacio == "D" & dsituacio > dat_inici) | situacio %in% c("A", "T"))
 
-dt_total$dsituacio %>% class()
-dt_total$dat_inici
 
 
 
@@ -504,12 +511,12 @@ dim(dt_tuberculosos)
 descrTable(dt_tuberculosos)                      
 
 
-
 # Factoritzar variables                              
 dt_tuberculosos<-factoritzar.NO.YES(dt_tuberculosos,"factoritzarSINO",fitxer_conductor_general)
 dt_tuberculosos<-factoritzar(dt_tuberculosos,extreure.variables("factoritzar",fitxer_conductor_general))
 
 
+saveRDS(dt_tuberculosos, here::here("dades", "dt_tuberculosos.RDS"))
 
 
 
