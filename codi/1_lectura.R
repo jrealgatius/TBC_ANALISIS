@@ -32,19 +32,30 @@ CATALEG<-readxl::read_excel(fitxer_conductor_cataleg,col_types = "text")
 
 # "farmacia.csv", "Laboratori.csv", "PSalut.csv", "Vacunes.csv", "Variables.csv", "vardemografiques.csv" 
 
-dt_psalut<-read.csv(here::here("dades","PSalut.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+# Actualització de 4 nous fitxers: "PSalut2.csv", "Laboratori2.csv" , "pob ciutat vella ene 2007.csv" "farma2_fisdmtbv.csv"
 
-dt_laboratori<-read.csv(here::here("dades","Laboratori.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+# dt_psalut<-read.csv(here::here("dades","PSalut.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_psalut<-read.csv2(here::here("dades","PSalut2.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+
+# dt_laboratori<-read.csv(here::here("dades","Laboratori.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_laboratori<-read.csv(here::here("dades","Laboratori2.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_vacunes<-read.csv(here::here("dades","Vacunes.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_variables<-read.csv(here::here("dades","Variables.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_farmacia<-read.csv(here::here("dades","farmacia.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_farmacia2<-read.csv(here::here("dades","farma2_fisdmtbv.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_insuline<-read.csv(here::here("dades","insulina.csv"), sep=";") %>% as_tibble()
 
-dt_demografiques <- read.csv(here::here("dades", "vardemografiques.csv"), sep=";") %>% as_tibble()
+dt_demografiques_antic <- read.csv(here::here("dades", "vardemografiques.csv"), sep=";") %>% as_tibble()
+dt_demografiques <- read.csv2(here::here("dades", "pob_ciutat_vella_ene_2007.csv"), sep=";",header=T,fileEncoding="utf-16") %>% as_tibble()
+dt_demografiques<-dt_demografiques %>% rename (CIP=cipACT) %>% mutate(dsituacio=stringr::str_sub(as.character(dsituacio),1,10))
+
+
+cataleg_medea<-read_excel(here::here("dades", "catalegEAP_BCN_MEDEA.xls")) %>% as_tibble()
+  
 
 #dt_cips<-read_excel("./dades/Cips.xls")
 
@@ -52,7 +63,9 @@ dt_demografiques <- read.csv(here::here("dades", "vardemografiques.csv"), sep=";
 dt_farmacia<-rbind(dt_farmacia,dt_insuline)
 table(dt_farmacia$PPFMC_ATCCODI)
 
-dt_cips <- readxl::read_excel("./dades/Cips.xls")
+dt_cips_antic <- readxl::read_excel("./dades/Cips.xls")
+dt_cips <- dt_demografiques %>% select(CIP)
+
 dt_dades <- openxlsx::read.xlsx("./dades/General.xlsx",sheet=1)
 
 dt_visites <- read.csv(here::here("dades", "visites.csv"), sep=";") %>% as_tibble()
@@ -119,43 +132,54 @@ names(dt_demografiques)
 dt_demografiques$CIP <- as.character(dt_demografiques$CIP)
 dt_demografiques$Mostra <- as.character(dt_demografiques$Mostra)
 dt_demografiques$sexe <- as.character(dt_demografiques$sexe)
+
+dt_demografiques<-dt_demografiques %>% 
+  mutate(dNaixement=stringr::str_sub(as.character(dNaixement),1,10)) %>% 
+  mutate(dNaixement=lubridate::ymd(dNaixement)) %>% 
+  mutate(dsituacio=lubridate::ymd(dsituacio))
+
 #Convertir dNaixement en Dates (R no llegia bé les dates)
-dt_demografiques$dNaixement <- gsub("ene", "jan", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("feb", "feb", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("mar", "mar", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("abr", "apr", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("may", "may", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("jun", "jun", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("jul", "jul", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("ago", "aug", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("sep", "sep", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("oct", "oct", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("nov", "nov", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement <- gsub("dic", "dec", dt_demografiques$dNaixement)
-dt_demografiques$dNaixement<-dt_demografiques$dNaixement %>% as.character() %>% lubridate::dmy() 
-dt_demografiques$situacio <- as.character(dt_demografiques$situacio)
-#Convertir dsituació en Dates (R no llegeix bé les dates)
-dt_demografiques$dsituacio <- gsub("ene", "jan", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("feb", "feb", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("mar", "mar", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("abr", "apr", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("may", "may", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("jun", "jun", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("jul", "jul", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("ago", "aug", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("sep", "sep", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("oct", "oct", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("nov", "nov", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio <- gsub("dic", "dec", dt_demografiques$dsituacio)
-dt_demografiques$dsituacio<-dt_demografiques$dsituacio %>% as.character() %>% lubridate::dmy() 
-dt_demografiques$descNacionalitat <- as.character(dt_demografiques$descNacionalitat)
-dt_demografiques$paisNaixement <- as.character(dt_demografiques$paisNaixement)
-dt_demografiques$descUP <- as.character(dt_demografiques$descUP)
+# dt_demografiques$dNaixement <- gsub("ene", "jan", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("feb", "feb", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("mar", "mar", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("abr", "apr", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("may", "may", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("jun", "jun", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("jul", "jul", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("ago", "aug", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("sep", "sep", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("oct", "oct", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("nov", "nov", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement <- gsub("dic", "dec", dt_demografiques$dNaixement)
+# dt_demografiques$dNaixement<-dt_demografiques$dNaixement %>% as.character() %>% lubridate::dmy() 
+# dt_demografiques$situacio <- as.character(dt_demografiques$situacio)
+# #Convertir dsituació en Dates (R no llegeix bé les dates)
+# dt_demografiques$dsituacio <- gsub("ene", "jan", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("feb", "feb", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("mar", "mar", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("abr", "apr", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("may", "may", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("jun", "jun", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("jul", "jul", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("ago", "aug", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("sep", "sep", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("oct", "oct", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("nov", "nov", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio <- gsub("dic", "dec", dt_demografiques$dsituacio)
+# dt_demografiques$dsituacio<-dt_demografiques$dsituacio %>% as.character() %>% lubridate::dmy() 
 
 
-dt_demografiques %>% filter(year(dNaixement) >= 2000)
-dt_demografiques$NAIX <- as.Date(ifelse(year(dt_demografiques$dNaixement) >= 2000, dt_demografiques$dNaixement - 36525,
-                                 dt_demografiques$dNaixement), origin= "1970-01-01") 
+# Ara no existeixen aquestes variables 
+# dt_demografiques$descNacionalitat <- as.character(dt_demografiques$descNacionalitat)
+# dt_demografiques$paisNaixement <- as.character(dt_demografiques$paisNaixement)
+# dt_demografiques$descUP <- as.character(dt_demografiques$descUP)
+
+
+# dt_demografiques %>% filter(year(dNaixement) >= 2000)
+# dt_demografiques$NAIX <- as.Date(ifelse(year(dt_demografiques$dNaixement) >= 2000, dt_demografiques$dNaixement - 36525,
+#                                  dt_demografiques$dNaixement), origin= "1970-01-01") 
+
+dt_demografiques <-dt_demografiques %>% mutate(NAIX=dNaixement)
 
 summary(dt_demografiques$NAIX)
 
@@ -219,7 +243,7 @@ dt_visites.agregada<-dt_visites.agregada %>% select(-dtindex)
 #Seleccionamos de BBD Dades CIP y DET_TB para juntar con el resto; 
 dt_datos <- dt_dades[,c(1,26)]   
 
-dt_cips <- dt_cips %>% rename(CIP=CIP2)
+# dt_cips <- dt_cips %>% rename(CIP=CIP2)
 dt_antecedents.agregada<-dt_antecedents.agregada %>% rename(CIP=idp)
 dt_events.agregada<-dt_events.agregada %>% rename(CIP=idp)
 dt_variables.agregada<-dt_variables.agregada %>% rename(CIP=idp)
@@ -239,6 +263,7 @@ dt_total <- dt_cips %>%
   left_join(dt_dem.agregada, by="CIP") %>%
   left_join(dt_visites.agregada,by="CIP") %>% 
   left_join(dt_datos.agregada,by="CIP")
+
 
 
 #DT_TOTAL tenemos lo necesario para calcular la incidencia; Tenemos en cuenta 5 escenarios; 
