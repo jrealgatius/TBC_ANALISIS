@@ -34,10 +34,10 @@ CATALEG<-readxl::read_excel(fitxer_conductor_cataleg,col_types = "text")
 
 # Actualització de 4 nous fitxers: "PSalut2.csv", "Laboratori2.csv" , "pob ciutat vella ene 2007.csv" "farma2_fisdmtbv.csv"
 
-# dt_psalut<-read.csv(here::here("dades","PSalut.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_psalut_antic<-read.csv(here::here("dades","PSalut.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 dt_psalut<-read.csv2(here::here("dades","PSalut2.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
-# dt_laboratori<-read.csv(here::here("dades","Laboratori.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_laboratori_antic<-read.csv(here::here("dades","Laboratori.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 dt_laboratori<-read.csv(here::here("dades","Laboratori2.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_vacunes<-read.csv(here::here("dades","Vacunes.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
@@ -45,7 +45,8 @@ dt_vacunes<-read.csv(here::here("dades","Vacunes.csv"), header=T, sep=";",fileEn
 dt_variables<-read.csv(here::here("dades","Variables.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
 
 dt_farmacia<-read.csv(here::here("dades","farmacia.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
-dt_farmacia2<-read.csv(here::here("dades","farma2_fisdmtbv.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_farmacia_nou<-read.csv(here::here("dades","farma2_fisdmtbv.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+
 
 dt_insuline<-read.csv(here::here("dades","insulina.csv"), sep=";") %>% as_tibble()
 
@@ -53,9 +54,11 @@ dt_demografiques_antic <- read.csv(here::here("dades", "vardemografiques.csv"), 
 dt_demografiques <- read.csv2(here::here("dades", "pob_ciutat_vella_ene_2007.csv"), sep=";",header=T,fileEncoding="utf-16") %>% as_tibble()
 dt_demografiques<-dt_demografiques %>% rename (CIP=cipACT) %>% mutate(dsituacio=stringr::str_sub(as.character(dsituacio),1,10))
 
+# Selecciono situació a data màxima 
+dt_demografiques<-dt_demografiques %>% transmute(CIP,sexe,situacio,dNaixement,ABS,dsituacio=lubridate::ymd(dsituacio)) %>% group_by(CIP) %>% dplyr::slice(which.max(dsituacio))
+
 
 cataleg_medea<-read_excel(here::here("dades", "catalegEAP_BCN_MEDEA.xls")) %>% as_tibble()
-  
 
 #dt_cips<-read_excel("./dades/Cips.xls")
 
@@ -69,6 +72,16 @@ dt_cips <- dt_demografiques %>% select(CIP)
 dt_dades <- openxlsx::read.xlsx("./dades/General.xlsx",sheet=1)
 
 dt_visites <- read.csv(here::here("dades", "visites.csv"), sep=";") %>% as_tibble()
+
+# Fusiono dates de TBC a dt_demografiques
+dates_dbc<-dt_dades %>% filter(dt_dades$DET_TB>0) %>% select(CIP,DET_TB)
+dt_demografiques<-dt_demografiques %>% left_join(dates_dbc)
+
+# Converteixo a data 
+dt_demografiques<-dt_demografiques %>% mutate(DET_TB=as.Date(DET_TB, origin="1899-12-30"))
+
+dt_demografiques %>% filter(DET_TB<lubridate::ymd(20070101))
+
 
 #Comprobar CIPS 
 #tabla1 <- dt_cips  
