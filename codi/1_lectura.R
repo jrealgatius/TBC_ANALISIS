@@ -563,3 +563,19 @@ descrTable(dt_dades)
 datatable(dt_dades)
 descrTable(dt_dades) %>% export2md(caption = "Descriptivo de TBC")
 
+
+
+#Creuament dt_demografiques_antis & dt_demografiques
+tabla_demo_antic <- dt_demografiques_antic    #31491
+tabla_demo_nueva <- dt_demografiques          #67437
+
+tabla_demo_antic$EstaNueva <- ifelse(is.na(match(tabla_demo_antic$CIP, tabla_demo_nueva$CIP)), 0, 1)
+table(tabla_demo_antic$EstaNueva)
+
+dt_demografiques %>% 
+  semi_join(dt_demografiques_antic, by="CIP")
+
+dt_demografiques_antic %>% 
+  semi_join(dt_demografiques, by="CIP")
+
+
