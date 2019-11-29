@@ -81,7 +81,7 @@ dt_demografiques<-dt_demografiques %>% left_join(dates_dbc)
 dt_demografiques<-dt_demografiques %>% mutate(DET_TB=as.Date(DET_TB, origin="1899-12-30"))
 
 dt_demografiques %>% filter(DET_TB<lubridate::ymd(20070101))
-
+dt_demografiques %>% filter(DET_TB>=lubridate::ymd(20070101))
 
 #Comprobar CIPS 
 #tabla1 <- dt_cips  
