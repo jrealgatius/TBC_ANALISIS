@@ -55,6 +55,7 @@ dt_demografiques <- read.csv2(here::here("dades", "pob_ciutat_vella_ene_2007.csv
 dt_demografiques<-dt_demografiques %>% rename (CIP=cipACT) %>% mutate(dsituacio=stringr::str_sub(as.character(dsituacio),1,10))
 
 # Selecciono situació a data màxima 
+
 dt_demografiques<-dt_demografiques %>% transmute(CIP,sexe,situacio,dNaixement,ABS,dsituacio=lubridate::ymd(dsituacio)) %>% group_by(CIP) %>% dplyr::slice(which.max(dsituacio))
 
 
@@ -531,5 +532,50 @@ dt_tuberculosos<-factoritzar(dt_tuberculosos,extreure.variables("factoritzar",fi
 
 saveRDS(dt_tuberculosos, here::here("dades", "dt_tuberculosos.RDS"))
 
+
+
+#Descriptiva de la Taula General 
+#Formatejar les dades
+names(dt_dades)
+str(dt_dades)
+dt_dades$data_naixement <- as.Date(dt_dades$DATA_NAIX, origin="1899-12-30")
+dt_dades$data_inclusio <- as.Date(dt_dades$DAT_INCL, origin="1899-12-30")
+dt_dades$data_mort <- as.Date(dt_dades$DAT_MORT, origin="1899-12-30")
+dt_dades$data_tbc <- as.Date(dt_dades$DET_TB, origin= "1899-12-30")
+
+summary(dt_dades)
+descrTable(dt_dades)
+
+
+# fitxer conductor cataleg 
+fitxer_conductor_cataleg<-"cataleg.xls"
+
+# fitxer conductor variables
+fitxer_conductor_variables<-"variables_tbc.xls"
+# fitxer conductor GENERAL
+fitxer_conductor_general<-"variables_general.xls"
+
+dt_dades <- factoritzar.NO.YES(dt_dades, "factoritzarSINO", fitxer_conductor_general)
+dt_dades <-factoritzar(dt_dades,extreure.variables("factoritzar",fitxer_conductor_general))
+
+
+descrTable(dt_dades)
+datatable(dt_dades)
+descrTable(dt_dades) %>% export2md(caption = "Descriptivo de TBC")
+
+
+
+#Creuament dt_demografiques_antis & dt_demografiques
+tabla_demo_antic <- dt_demografiques_antic    #31491
+tabla_demo_nueva <- dt_demografiques          #67437
+
+tabla_demo_antic$EstaNueva <- ifelse(is.na(match(tabla_demo_antic$CIP, tabla_demo_nueva$CIP)), 0, 1)
+table(tabla_demo_antic$EstaNueva)
+
+dt_demografiques %>% 
+  semi_join(dt_demografiques_antic, by="CIP")
+
+dt_demografiques_antic %>% 
+  semi_join(dt_demografiques, by="CIP")
 
 
