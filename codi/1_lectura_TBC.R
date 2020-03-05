@@ -121,8 +121,7 @@ dt_dades<-dt_dades %>% mutate(DATA_NAIX=as.Date(DATA_NAIX, origin = "1899-12-30"
 
 # Actualitzar dt_demografiques  amb dades generals de l'agencia (sobretot els 1643 que no teniem en E-cap)
 # Formatejo dades de dt_dades
-dades_temp<-
-  dt_dades %>% transmute(CIP,
+dades_temp<- dt_dades %>% transmute(CIP,
                        sexe=if_else(str_sub(CIP,5,5)=="1","D","H"),
                        dNaixement=paste0("19",str_sub(CIP,6,7),str_sub(CIP,8,9),str_sub(CIP,10,11)) %>% lubridate::ymd(),
                        situacio=MORT,
@@ -140,10 +139,7 @@ dt_demografiques<-dt_demografiques %>% bind_rows(dades_temp)
 rm(dades_temp)
 
 #     Capturo data_TBC de dades_dt i afegeixo en dt_demografiques  ---------------
-dt_demografiques<-dt_demografiques %>% left_join(select(dt_dades,CIP,DET_TB),by="CIP")
-
-# Neteja 
-rm(dt_cips_antic)
+dt_demografiques<-dt_demografiques %>% left_join(select(dt_dades,CIP,DET_TB))
 
 # 4. Formatar dades  -------------
 # 4.1 DT_PSALUT
@@ -182,92 +178,55 @@ dt_visites<-
   dt_visites %>% transmute(
   CIP=cip,any,servei=as.character(servei),tipus.visita =as.character(tipus.visita),N)
 
-# 5. Agregar cada base de dades en data index (01/01/2007 o movil ) ------
+# 5. Agregar cada base de dades en data index (01/01/2007) ------
 
 # 5.1. Agregar problemes de salut
-dt_psalut<-
-  dt_psalut %>% mutate(idp=CIP) %>% semi_join(dt_demografiques,by="CIP")
+dt_psalut<-dt_psalut %>% mutate(idp=CIP)
 
-
-# 5.2. Generar data_index segons primer DM2 detectat en problemes de salut  --------
-dt_dtindexDM<-
-  dt_psalut %>% 
-  semi_join(CATALEG %>% select(cod,grup) %>% filter(grup=="DM2"),by="cod") %>% 
-  group_by(idp) %>% 
-  dplyr::slice(which.min(dat)) %>% 
-  ungroup() %>% 
-  semi_join(dt_demografiques,by="CIP")
-
-# Definició de data index 
-dt_dtindexDM<-dt_dtindexDM %>% filter(lubridate::year(dat)<2017)
-
-# 5.3. data index (Dinamica o estatica)   -----------------
-data_index_agregacio<-dt_dtindexDM %>% select(idp,data=dat) %>% mutate(dat=data.to.string(dat))
-
-dt_demografiques<-dt_demografiques %>% mutate(dtindex="20070101")
-data_index_agregacio<-dt_demografiques %>% select(idp=CIP,data=dtindex)
-
-# 5.4. Agregacions   -----------------------
-# Antecedents  -----------------
-dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+# Antecedents
+dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                       finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="grup")
 
 # Antecedents 2n nivell
-dt_antecedents.agregada2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+dt_antecedents.agregada2<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                                            finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="subgrup") %>% select(-dtindex)
 
 # Antecedents 3n nivell
-dt_antecedents.agregada3<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+dt_antecedents.agregada3<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                                             finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="DM") %>% select(-dtindex)
 
-# Juntar totes les agregades
-dt_antecedents.agregada<-dt_antecedents.agregada %>% left_join(dt_antecedents.agregada2) %>% left_join(dt_antecedents.agregada3) %>% select(-dtindex)
+
+dt_antecedents.agregada<-dt_antecedents.agregada %>% left_join(dt_antecedents.agregada2) %>% left_join(dt_antecedents.agregada3)
 rm(dt_antecedents.agregada2,dt_antecedents.agregada3)
 
-# Events --------------
-dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+# Events 
+dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                                            finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="grup") %>% select(-dtindex)
 
-# Events 2n nivell 
-temp<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+temp<-agregar_problemes(dt_psalut,bd.dindex ="20070101",dt.agregadors=CATALEG,
                                       finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="DM") %>% select(-dtindex)
 
-# Events 3 nivell 
-temp2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
-                         finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="subgrup") %>% select(-dtindex)
-
-
-dt_events.agregada<-dt_events.agregada %>% left_join(temp) %>% left_join(temp2)
-rm(temp,temp2)
-
-# 5.2. Agregar variables basals 
-dt_variables <-dt_variables %>% mutate(idp=CIP) %>% semi_join(dt_demografiques,by="CIP")
-
-dt_variables.agregada<-
-  agregar_analitiques(dt_variables,bd.dindex =data_index_agregacio,finestra.dies=c(-365,+1),sufix = c(".valor", ".dies")) %>% select(-dtindex)
-
-# 5.4. Agregar vacunes
-dt_vacunes <- dt_vacunes %>% mutate(idp=CIP,val=1) %>% semi_join(dt_demografiques,by="CIP")
-dt_vac.agregada<-
-  agregar_analitiques(dt_vacunes,bd.dindex =data_index_agregacio,finestra.dies=c(-Inf,+1),sufix = c(".valor", ".dies")) %>% select(-dtindex)
-
-# 5.5 Farmacs --------------------
-dt_farmacia<-dt_farmacia %>% mutate(idp=CIP,dat=data.to.string(dataini),dbaixa=data.to.string(datafi)) %>% semi_join(dt_demografiques,by="CIP")
-  
-dt_farmacs_agregada<-
-  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="grup",agregar_data=F) %>% select(-dtindex)
-
-temp<-
-  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="subgrup",agregar_data=F) %>% select(-dtindex)
-
-dt_farmacs_agregada<-dt_farmacs_agregada %>% left_join(temp,by="idp")
+dt_events.agregada<-dt_events.agregada %>% left_join(temp)
 rm(temp)
 
-# 5.6 Visites   ----------------
-dt_visites <- dt_visites %>% mutate(idp=CIP,dat=lubridate::make_date(any),cod=servei) %>% semi_join(dt_demografiques,by="CIP")
+# 5.2. Agregar variables basals 
+dt_variables <-dt_variables %>% mutate(idp=CIP)
+dt_variables.agregada<-agregar_analitiques(dt_variables,bd.dindex ="20070101",finestra.dies=c(-365,+1),sufix = c(".valor", ".dies")) %>% select(-dtindex)
 
-dt_visites.agregada <- 
-  agregar_visites(dt_visites, bd.dindex = data_index_agregacio, finestra.dies = c(-365, +Inf),N="N") %>% select(-dtindex)
+# 5.4. Agregar vacunes
+dt_vacunes <- dt_vacunes %>% mutate(idp=CIP,val=1)
+dt_vac.agregada<-agregar_analitiques(dt_vacunes,bd.dindex ="20171231",finestra.dies=c(-Inf,+1),sufix = c(".valor", ".dies")) %>% select(-dtindex)
+
+# 5.5 Farmacs 
+dt_farmacia<-dt_farmacia %>% mutate(idp=CIP,dat=data.to.string(dataini),dbaixa=data.to.string(datafi))
+dt_farmacs_agregada<-agregar_prescripcions(dt=dt_farmacia,bd.dindex=20071231,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="grup",agregar_data=F) %>% select(-dtindex)
+temp<-agregar_prescripcions(dt=dt_farmacia,bd.dindex=20071231,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="subgrup",agregar_data=F) %>% select(-dtindex)
+dt_farmacs_agregada<-dt_farmacs_agregada %>% left_join(temp)
+rm(temp)
+
+# 5.6 Visites
+dt_visites <- dt_visites %>% mutate(idp=CIP,dat=lubridate::make_date(any),cod=servei)
+dt_visites.agregada <- agregar_visites(dt_visites, bd.dindex = "20070101", finestra.dies = c(-365, +Inf),N="N") %>% select(-dtindex)
 
 # 6. Fusionar taules en una --------------
 dt_total<-
@@ -277,15 +236,8 @@ dt_total<-
   left_join(dt_variables.agregada,by="idp") %>% 
   left_join(dt_vac.agregada,by="idp") %>%
   left_join(dt_visites.agregada,by="idp") %>% 
-  left_join(dt_farmacs_agregada,by="idp") 
+  left_join(dt_farmacs_agregada,by="idp")
   
-
-
-# 7. Elimino duplicats 
-dt_total<-dt_ecap %>% group_by(idp) %>% slice(1) %>% ungroup()
-
-# 8. Oju dades d'agencia te Pacients duplicats 
-temp<-dt_dades %>% group_by(CIP) %>% mutate(num=n()) %>% ungroup() %>% filter(num>1)
 
 # 7. Salvar fitxers  ------------------- 
 
@@ -293,66 +245,39 @@ temp<-dt_dades %>% group_by(CIP) %>% mutate(num=n()) %>% ungroup() %>% filter(nu
 dt_ecap<-dt_total
 dt_agencia<-dt_dades
 
-
-
 # Crear directori output si no existeix
 if (!dir.exists("dades/output")) {dir.create("dades/output")}
 
 save(dt_ecap,dt_agencia, file=here::here("dades/output","output.Rdata"))
+
 
 # Salvar variables en excel 
 write.csv2(names(dt_ecap),file="var_ecap.csv")
 write.csv2(names(dt_agencia),file="var_agencia.csv")
 
 
-
-# Netejo objectes   --------------------
-
-rm(dt_visites,dt_cips,dt_antecedents.agregada3,dt_antecedents.agregada2,dt_cips_antic,dt_insuline,dt_farmacia_nou,dt_psalut3,
-        dt_farmacs_agregada,dt_vacunes,dt_vac.agregada,dt_events.agregada,dt_visites.agregada,dt_variables,dt_variables.agregada,dt_psalut,dt_psalut3,
-   dt_cips,dt_cips_antic,dt_antecedents.agregada,data_index_agregacio,dt_dtindexDM)
-
-#    PREPARACIÓ          -----------------------
-# Genero variable grup 
-dt_ecap<-
-  dt_ecap %>% 
-  mutate(grup=if_else(DG.DM<=lubridate::ymd(20070101),"DM","Control"),
-                      grup=if_else(is.na(DG.DM),"Control",grup))
-
-
-# Esdeveniment  ------------------
-# DET_TB en Fecha 
-dt_total$DET_TB <- as.Date(as.numeric(dt_total$DET_TB), origin="1899-12-30")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 
 #     FINS AQUÍ VERIFICAT           ----------------------------------
 #     FINS AQUÍ VERIFICAT           ----------------------------------
 #     FINS AQUÍ VERIFICAT           ----------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -379,11 +304,15 @@ dt_total <- dt_total[!duplicated(dt_total$CIP),]
 dim(dt_total)
 table(dt_total$Mostra)
 
+dt_total<-as_tibble(dt_total)
+
+# assignar totes les dates index i generar camp Mostra
+dt_total<-dt_total %>% mutate(dtindex="20070101")
+  
+dt_total<-dt_total %>% mutate(Mostra=if_else(DG.DM<=lubridate::ymd(20070101),"CASOS","CONTROLS"),
+                    Mostra=if_else(is.na(DG.DM),"CONTROLS",Mostra)) 
 
 
-dt_total<-dt_total %>% 
-  mutate(Mostra=if_else(DG.DM<=lubridate::ymd(20070101),"CASOS","CONTROLS"),
-         Mostra=if_else(is.na(DG.DM),"CONTROLS",Mostra)) 
 
 #Convertimos DET_TB en Fecha 
 dt_total$DET_TB <- as.Date(as.numeric(dt_total$DET_TB), origin="1899-12-30")
