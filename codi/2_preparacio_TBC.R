@@ -10,6 +10,21 @@ link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funci
 devtools::source_url(link_source)
 
 
+# FUNCIÓ 
+valida_quanti<-function(dt=dades,y="valor_basal.GLICADA",grup="constant") {
+  dt$constant=1
+  # dt=data_long
+  # y="valor_basal.GLICADA"
+  # grup="SEXE"
+  summ1 <- paste0('min(', y, ',na.rm=T)')
+  summ2<-paste0('max(',y,',na.rm=T)')
+  
+  dt %>% dplyr::group_by_(grup) %>% 
+    dplyr::summarise_(min=summ1,
+                      max=summ2,
+                      n="n()") %>%  rename("group"=grup) }
+
+
 # 2. Paràmetres  ----------------------
 
 conductor_variables<-"variables_tbc.xls"
@@ -20,6 +35,157 @@ load("dades/output/output.Rdata")
 
 # Generar conductor dades 
 
+#    PREPARACIÓ          -----------------------
+library(lubridate)
+
+# Genero variable grup (Si un ja te antecedent DM aquest ja no potser un event )
+dt_ecap<- dt_ecap %>% 
+  mutate(grup=if_else(DG.DM<=ymd(dtindex),"DM","Control"),
+         grup=if_else(is.na(DG.DM),"Control",grup))
+dt_ecap<- dt_ecap %>% 
+  mutate(EV.DM=ifelse(grup=="DM",NA,EV.DM),
+         EV.DM=as_date(EV.DM)) 
+
+# Truncament a 31/12/2016  -------
+# Generar variable antecedent EVENT TBC (<31/12/2016) -------
+dt_ecap <-dt_ecap %>% 
+  mutate (DG.TBC=ifelse(DET_TB>ymd(dtindex) | is.na(DET_TB) ,NA,DET_TB),
+          EV.TBC=ifelse(DET_TB<=ymd(dtindex) | is.na(DET_TB),NA,DET_TB),
+          DG.TBC=as_date(DG.TBC),
+          EV.TBC=as_date(EV.TBC)) 
+
+min(dt_ecap$DET_TB,na.rm = T)
+max(dt_ecap$DET_TB,na.rm = T)
+
+# Actualització situacio o data final de seguiment 31/12/2016 o mort --------------
+data_maxima<-20161231
+
+dt_ecap<-
+  dt_ecap %>% 
+  mutate(dsituacio=ifelse(dsituacio>ymd(data_maxima),ymd(data_maxima),dsituacio),
+         dsituacio=ifelse(situacio=="D",dsituacio,ymd(data_maxima)),
+         dsituacio=ifelse(is.na(dsituacio),ymd(data_maxima),dsituacio),
+         dsituacio=as_date(dsituacio),
+         situacio=ifelse(is.na(situacio),"A",situacio)) 
+
+# Si situacio=="D" &  EV.DM>dsituacio --- situacio="A" 
+dt_ecap %>% mutate(situacio=ifelse(situacio=="D" & EV.DM>dsituacio,"A",situacio),
+                   dsituacio=ifelse(situacio=="D" & EV.DM>dsituacio,"A",situacio)) %>% 
+  filter(situacio=="D" & EV.DM>dsituacio) %>% select(situacio,dsituacio,EV.DM)
+
+
+
+
+dt_ecap %>% valida_quanti("dsituacio","situacio")
+
+# Generar data fi de seguiment / event principal TBC previ a 31/12/2016 / o data de DM en controls   -------
+
+# Si un CONTROL passa a DM s'acaba seguiment a data de DIABETIS
+dt_ecap<-
+  dt_ecap %>% 
+  mutate(datafi=ifelse(grup=="Control" & EV.DM>=ymd(dtindex),EV.DM,dsituacio),
+         datafi=ifelse(grup=="Control" & is.na(EV.DM),dsituacio,datafi),
+         datafi=as_date(datafi)) 
+
+dt_ecap %>% valida_quanti("datafi")
+
+
+#  filtre 1: mort inici de seguiment ----------------
+dt_ecap<-
+  dt_ecap %>% mutate(filtre_exitus=ifelse(situacio=="D" & dsituacio<=ymd(dtindex),1,0))
+
+# Calculo temps de seguiment  ----------
+dt_ecap<-dt_ecap %>% mutate(temps_seguiment=datafi-ymd(dtindex))
+
+dt_ecap %>% valida_quanti("temps_seguiment","filtre_exitus")
+
+# 
+
+
+dt_ecap %>% filter(filtre_exitus==1 & temps_seguiment>=0) %>% select(dsituacio,datafi,grup,EV.DM,EV.TBC,situacio)
+
+# Temps lliure d'esdeveniment TBC i event_tbc -----------------------
+
+dt_ecap<-dt_ecap %>% 
+  mutate(dt_lliure_TBC=pmin(datafi,EV.TBC,na.rm = T),
+         temps_tbc=dt_lliure_TBC-ymd(dtindex),
+         event_tbc=ifelse(EV.TBC<=datafi,1,0),
+         event_tbc=ifelse(is.na(event_tbc) | event_tbc==0,0,1)) 
+
+
+dt_ecap$surv_tbc<-with(dt_ecap,Surv(temps_tbc, event_tbc))
+
+
+##  ANALISIS PRELIMINAR-----
+
+#  CURVAS DE SUPERVIVENCIA 
+library(survminer)
+
+dades<-dt_ecap %>% filter(filtre_exitus==0)
+
+survfit(surv_tbc ~ grup, data=dades) %>%
+  ggsurvplot(title="TB detection in patient with or without DM",
+             p.val=T, xlab="Time (days)", censor=F, linetype="strata",
+             fun="event", cumevents = T)
+
+descrTable(surv_tbc~grup,data=dades,show.ratio = T)
+
+
+## Analisi dades agencia 
+dades<- dt_ecap %>%  filter(dt_agencia==1)
+
+survfit(surv_tbc ~ grup, data=dades) %>%
+  ggsurvplot(title="TB detection in patient with or without DM",
+             p.val=T, xlab="Time (days)", censor=F, linetype="strata",
+             fun="event", cumevents = T)
+
+descrTable(surv_tbc~grup,data=dades,show.ratio = T)
+
+
+
+#  ------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # 4. Format: Netejar espais en blanc   -----------
 
 dt_ecap<-netejar_espais(dt_ecap)
@@ -27,18 +193,11 @@ dt_agencia<-netejar_espais(dt_agencia)
 
 # 5. Eliminar duplicats  --------------
 
-#         dt_ecap  
-
-# Marco repetits 
-dt_ecap<-dt_ecap %>% left_join(dt_ecap %>% group_by(CIP) %>% summarize(repe=n()) %>% ungroup())
-
-# Primer valor valid
-dt_ecap <- dt_ecap %>% group_by(CIP) %>% summarise_each(funs(first(.[!is.na(.)]))) %>% ungroup()
-
 #         dt_agencia 
 
 # Marco repetits 
 dt_agencia<-dt_agencia %>% left_join(dt_agencia %>% group_by(CIP) %>% summarize(repe=n()) %>% ungroup())
+
 
 # Filtro per CASOS
 dt_agencia<-dt_agencia %>% filter(repe==1 | (repe>1 & Mostra=="CASOS"))
@@ -52,14 +211,6 @@ dt_agencia<-dt_agencia %>% filter (N==1 | INDIGENT=="NO") %>% select(-N)
 
 # 6. Càlculs   -----------------
 dades<-dt_ecap
-
-
-# Casos/controls en data basal 
-dades<-dades %>% mutate(Mostra=
-                          case_when(DG.DM<=lubridate::ymd(20070101)~"CASOS",
-                                    EV.DM>lubridate::ymd(20070101)~"CONTROLS",
-                                    is.na(DG.DM)~"CONTROLS",
-                                    TRUE~"CONTROLS"))
 
 # Tots els DM (CASOS) -- > data DM post = NA 
 dades<-dades %>% mutate(EV.DM=ifelse(Mostra=="CASOS",NA,EV.DM),EV.DM=lubridate::as_date(EV.DM)) 
