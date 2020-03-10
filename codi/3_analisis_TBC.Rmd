@@ -1,6 +1,6 @@
 ---
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
-author: "Ramó Puig & Elena Navas & Jordi Real"
+author: "Ramó Puig, Elena Navas i Jordi Real"
 website: "https://github.com/USR-DAPCAT/"
 
 date: "`r format(Sys.time(), '%d %B, %Y')`"
@@ -71,19 +71,19 @@ output:
 
 ## Pendiente: 
 
-&check; Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
-&check; Etiquetar variables
-&check; Análisis por objetivos
-&check; Reanálisis cohorte dinámica
+- Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
+- Etiquetar variables
+- Análisis por objetivos
+- Generar cohorte dinámica y/o apareada
 
 ## Consideraciones / limitaciones:
 
-- No hay datos de fármacos en fecha basal (Solamente a partir de 2009) --> agregación hecha en fecha 2009
+- Solo TBC con fecha disponible
+- Excluidos repetidos
 - Base de datos vacunas solo disponible a partir de 12/2007 (No en basal)
 - Reclasificados expuestos diabeticos en fecha de inclusión (1/2007)
 - Possible infraregistro de diagnosticos en 2007
 - Alto número de valores faltantes
-
 
 
 ```{r setup, include = FALSE}
@@ -134,7 +134,13 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 ```
 
 
-# Flow-chart
+# Método 
+
+Cohorte estatica a 01/2007 con seguimiento hasta 31/12/2018
+
+Criterios de inclusión: Pacientes DM y controles de **Ciutat Vella** vinculados con el registro del programa de prevención y control de Tuberculosi de Barcelona. 
+
+## Flowchart
 
 ```{r flow_filtres,include=T}
 
@@ -156,9 +162,11 @@ dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
 
 ```
 
-## 4. Resultats
+# Resultats
 
-- Descriptiu i característiques basals entre grups
+## Característiques basals
+
+- Descriptiu de característiques basals entre grups
 
 
 ```{r resultats1, include=T, warning=FALSE,echo=FALSE, message=F}
@@ -181,9 +189,7 @@ dades %>% group_by(descNacionalitat) %>% count() %>% kable() %>% kableExtra::kab
 ```
 
 
-
-
-## Incidencia de TBC en funció de DM i caracteristiques basals (Outcomes)
+## Incidència de TBC
 
 ```{r analisis2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
@@ -200,17 +206,25 @@ taula_IA_grup<-dades %>% base::split(dades$grup) %>%
 kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
 
 
-descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(caption = "TB i HR per grups")
+descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
+
+
+
+```
+
+## HR ajustats
+
+```{r analisis3, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+
+
+HR.COX(x="v.ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables) %>% kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
 
 
 
 ```
 
 
-
-
-
-## 5. Figures
+## Supervivencia K-M 
 
 ```{r figura1, include=T}
 
@@ -228,7 +242,7 @@ survfit(surv_tbc ~ grup, data=dades) %>%
 &nbsp;
 <hr />
 <p style="text-align: center;">A work by $Jordi Real$ </a></p>
-<p style="text-align: center;">$Llepali System$ </a></p>
+<p style="text-align: center;">$Llepali-System$ </a></p>
 <p style="text-align: center;"><span style="color: #808080;"><em><https://github.com/USR-DAPCAT/></em></span></p>
 
 
