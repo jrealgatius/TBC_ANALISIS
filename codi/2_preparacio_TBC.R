@@ -56,6 +56,7 @@ dt_ecap <-dt_ecap %>%
           DG.TBC=as_date(DG.TBC),
           EV.TBC=as_date(EV.TBC)) 
 
+
 dt_ecap %>% valida_quanti("DET_TB")
 dt_ecap %>% valida_quanti("DG.TBC")
 
@@ -155,6 +156,7 @@ dt_ecap<-dt_ecap %>% mutate(anyindex=year(ymd(dtindex)))
 # Generar matching   -----------------
 descrTable(grup~sexe+age,data=dt_ecap)
 
+
 dt_ecap_matchejades<-dt_ecap %>% generar_matching(vars_matching=c("sexe","age","anyindex"),grup="DG.DM_cat",ratio=1)
 
 descrTable(grup~sexe+age+anyindex,data=dt_ecap_matchejades)
@@ -162,17 +164,42 @@ descrTable(grup~sexe+age+anyindex,data=dt_ecap_matchejades)
 dt_ecap<-dt_ecap %>% left_join(select(dt_ecap_matchejades,CIP,PS),by="CIP")
 
 
+
 # Arreglar dt_agencia ---------------
+
+# Filtro aquells que tenen data de TBC en qualsevol moment o marcats com a DM o control en variable
+dt_agencia<-dt_agencia %>% filter(!is.na(DET_TB) | !is.na(DIABETIS)) 
 
 # Marco repetits 
 dt_agencia<-dt_agencia %>% left_join(dt_agencia %>% group_by(CIP) %>% summarize(repe=n(), by="CIP") %>% ungroup())
 
-
 # Afegeixo edat + sexe de dt_ecap ------------------
-dt_agencia<-dt_agencia %>% left_join(select(dt_ecap,CIP,sexe,age,PS,grup),by="CIP") %>% select(-EDAT,-GENERE)
+dt_agencia<-dt_agencia %>% left_join(select(dt_ecap,CIP,sexe,age,PS,grup,event_tbc,DG.TBC_cat),by="CIP") %>% select(-EDAT,-GENERE)
+
+
+save(dt_agencia, file="dt_agencia.Rdata")
+
+
+
+# Conductors de dt_ecap
+# Conductor de dt_agencia
+
+dades<-dt_ecap
+
+ActualitzarConductor2(dades,"variables_tbc_ver2.xlsx")
+
+ActualitzarConductor2(d=dades,taulavariables = "variables_tbc_ver2.xlsx")
+
+write.csv2(names(dt_ecap),"lll.csv")
+
+
+
+
+
+
+
 
 # Aparello dades de l'agencia  -----------------
-
 descrTable(grup~sexe+age,data=dt_agencia)
 
 dt_agencia_matchejades<-select(dt_ecap,-PS) %>% 
@@ -180,6 +207,9 @@ dt_agencia_matchejades<-select(dt_ecap,-PS) %>%
   generar_matching(vars_matching=c("sexe","age"),grup="DG.DM_cat",ratio=1)
 
 descrTable(grup~sexe+age,data=dt_agencia_matchejades)
+
+## 
+
 
 
 ##  ANALISIS PRELIMINAR-----
@@ -197,8 +227,20 @@ survfit(surv_tbc ~ grup, data=dt_agencia_matchejades) %>%
 descrTable(surv_tbc~grup,data=dt_agencia_matchejades,show.ratio = T, byrow = T )
 
 
+dades<-dt_ecap %>% filter(filtre_exitus==0 & filtre_TBC==0 & dt_agencia==1)
+
+survfit(surv_tbc ~ grup, data=dades) %>%
+  ggsurvplot(title="TB detection in patient with or without DM",
+             p.val=T, xlab="Time (days)", censor=F, linetype="strata",
+             fun="event", cumevents = T)
+
+descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T )
+
+descrTable(grup~sexe+age,data=dades)
+
 
 #  ------------
+
 
 
 
