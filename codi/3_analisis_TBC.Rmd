@@ -1,0 +1,235 @@
+---
+title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
+author: "Ramó Puig & Elena Navas & Jordi Real"
+website: "https://github.com/USR-DAPCAT/"
+
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    fig_caption: true
+    css: logos_css/usr_styles.css
+  pdf_document: default
+  word_document: default
+
+---
+
+&nbsp;
+<script>
+   $(document).ready(function() {
+     $head = $('#header');
+     $head.prepend('<img src=\"logos_css/logoIDIAP.png\" style=\"float: right ;width: 130px;\"/>')
+     $head.prepend('<img src=\"logos_css/logo_bio.jpg\" style=\"margin-left:25% ;width: 80px;\"/>')
+     $head.prepend('<img src=\"logos_css/logoDAP_Cat.png\" style=\"float: left:1;width: 185px;\"/>')
+   });
+</script>
+
+
+<div class="watermark">DRAFT</div>
+
+****
+
+# Objectivos
+
+## Objetivo principal
+
+- Analizar la relación epidemiológica y los factores asociados entre la DM y la TB en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona).
+- Conocer el riesgo de TB entre la población con DM en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona) para identificar subgrupos de alto riesgo y potencialmente susceptibles de cribado de TB.
+
+
+## Objetivos secundarios 
+
+- 1.  Comparar la evolución de la prevalencia de la DM y de la TB en el periodo 2006 al 2015 en el distrito de Ciutat Vella, un entorno de alta prevalencia de TB.
+- 2.	Conocer la prevalencia y la incidencia de TB entre la población con DM con respecto a la población no diabética.
+- 3.	Analizar si el grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
+- 4.	Analizar el papel de la inmigración en la relación entre DM y TB.
+
+
+-----
+
+## Actualizaciones 
+
+&check; Generació de 251 variables <br/>
+&check; Actualització de dades de l'Ecap  <br/>
+&check; Vinculació de taules E-cap <br/>
+&check; Depuració de dades  <br/>
+&check; Reprogramació i generació de resultats  <br/>
+ 
+## Hecho: 
+
+&check; Lectura de tablas de históricos de E-Cap proporcionadas por Basic
+&check; Agregación en fecha de inclusión (1/2007)
+&check; vinculación de tablas en una
+&check; Depuración de errores (Eliminación de duplicados, valores negativos .....)
+&check; Cálculo de variables
+&check; Descriptivo inicial exploratorio
+&check; Análisis de associación de DM versus TBC
+&check; Estimación de incidéncias
+
+## Pendiente: 
+
+&check; Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
+&check; Etiquetar variables
+&check; Análisis por objetivos
+&check; Reanálisis cohorte dinámica
+
+## Consideraciones / limitaciones:
+
+- No hay datos de fármacos en fecha basal (Solamente a partir de 2009) --> agregación hecha en fecha 2009
+- Base de datos vacunas solo disponible a partir de 12/2007 (No en basal)
+- Reclasificados expuestos diabeticos en fecha de inclusión (1/2007)
+- Possible infraregistro de diagnosticos en 2007
+- Alto número de valores faltantes
+
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, include=F,size="huge")
+library(ggplot2)
+library(dplyr)
+library(survminer)
+
+# CArrego funcions -------------------
+link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+devtools::source_url(link_source)
+
+conductor_variables<-here::here("variables_tbc.xls")
+
+#   template: template.html
+```
+
+
+```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+# Formateig ----------------
+load(here::here("dades/output","output2.Rdata"))
+dt_ecap<-netejar.noms.variables(dt_ecap)
+dades<-dt_ecap
+
+# Calcul de variables noves edat etc..
+
+# Recode dates / factorització 
+dades<-dades %>% mutate_at(vars(starts_with("P_G_")), ~if_else(is.na(.),"No","Si")) # Vacunes
+
+dades<-dades %>% mutate_at(vars(starts_with("FP.")), ~if_else(is.na(.),"No","Si")) # Farmacs
+
+dades<-dades %>% mutate(PS=if_else(is.na(PS),0,1))
+
+dades<-dades %>% factoritzar.NO.YES("factoritzarSINO",conductor_variables)
+
+# Recode rangs de valors fora de l'interval a missings Reals (missings de valors reals)
+dades<-recode_to_missings(dades,taulavariables = conductor_variables,rang="rang_valid")
+
+# Calcul de dies i anys lliure de TBC 
+dades<-dades %>% mutate (dies_lliure_tbc=as.numeric(temps_tbc),anys_lliure_tbc=dies_lliure_tbc/365.25)
+
+
+# Etiquetació de variables  -----------
+dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
+
+
+
+```
+
+
+# Flow-chart
+
+```{r flow_filtres,include=T}
+
+criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T)
+
+dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
+
+
+
+# ![](logoDAP_Cat.png)
+```
+
+
+
+
+```{r preparacio,include=F}
+
+
+
+```
+
+## 4. Resultats
+
+- Descriptiu i característiques basals entre grups
+
+
+```{r resultats1, include=T, warning=FALSE,echo=FALSE, message=F}
+
+# T BASAL -------------
+
+# formula<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
+# T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
+# export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+
+
+formula<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
+T1_BASAL<-descrTable(formula,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "No")
+export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+
+
+dades %>% group_by(descNacionalitat) %>% count() %>% kable() %>% kableExtra::kable_styling()
+
+
+```
+
+
+
+
+## Incidencia de TBC en funció de DM i caracteristiques basals (Outcomes)
+
+```{r analisis2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+
+# T BASAL -------------
+
+kable(resum_events(dades = dades,evento="event_tbc",temps="anys_lliure_tbc",valorevent = "1"),caption="Resum d'events") %>% kableExtra::kable_styling()
+
+taula_IA_grup<-dades %>% base::split(dades$grup) %>% 
+  map(~resum_events(dades = .x,evento="event_tbc",temps="anys_lliure_tbc",valorevent = "1")) %>% 
+  map(as_tibble) %>% 
+  map_df(bind_rows,.id = "grup") %>% 
+  as_tibble()
+
+kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
+
+
+descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(caption = "TB i HR per grups")
+
+
+
+```
+
+
+
+
+
+## 5. Figures
+
+```{r figura1, include=T}
+
+
+
+survfit(surv_tbc ~ grup, data=dades) %>%
+  ggsurvplot(title="TB detection in patient with or without DM",
+             p.val=T, xlab="Time (days)", censor=F, linetype="strata",
+             fun="event", cumevents = T)
+
+
+```
+
+
+&nbsp;
+<hr />
+<p style="text-align: center;">A work by $Jordi Real$ </a></p>
+<p style="text-align: center;">$Llepali System$ </a></p>
+<p style="text-align: center;"><span style="color: #808080;"><em><https://github.com/USR-DAPCAT/></em></span></p>
+
+
+

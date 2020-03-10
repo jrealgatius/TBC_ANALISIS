@@ -23,3 +23,16 @@ generar_matching<-function(dt=dt_ecap,vars_matching=c("sexe","age"),grup="DG.DM_
 
 
 
+# FUNCIÓ 
+valida_quanti<-function(dt=dades,y="valor_basal.GLICADA",grup="constant") {
+  dt$constant=1
+  # dt=data_long
+  # y="valor_basal.GLICADA"
+  # grup="SEXE"
+  summ1 <- paste0('min(', y, ',na.rm=T)')
+  summ2<-paste0('max(',y,',na.rm=T)')
+  
+  dt %>% dplyr::group_by_(grup) %>% 
+    dplyr::summarise_(min=summ1,
+                      max=summ2,
+                      n="n()") %>%  rename("group"=grup) }

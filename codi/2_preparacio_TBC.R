@@ -12,19 +12,6 @@ devtools::source_url(link_source)
 
 source("codi/global_TBC.R")
 
-# FUNCIÓ 
-valida_quanti<-function(dt=dades,y="valor_basal.GLICADA",grup="constant") {
-  dt$constant=1
-  # dt=data_long
-  # y="valor_basal.GLICADA"
-  # grup="SEXE"
-  summ1 <- paste0('min(', y, ',na.rm=T)')
-  summ2<-paste0('max(',y,',na.rm=T)')
-  
-  dt %>% dplyr::group_by_(grup) %>% 
-    dplyr::summarise_(min=summ1,
-                      max=summ2,
-                      n="n()") %>%  rename("group"=grup) }
 
 
 # 2. Paràmetres  ----------------------
@@ -34,6 +21,10 @@ conductor_variables<-"variables_tbc.xls"
 # 3. Lectura -------------
 
 load("dades/output/output.Rdata")
+
+# 4. Netejar espais en blanc   -----------
+dt_ecap<-netejar_espais(dt_ecap)
+dt_agencia<-netejar_espais(dt_agencia)
 
 # Generar conductor dades 
 #    PREPARACIÓ          -----------------------
@@ -153,20 +144,23 @@ dt_ecap<-dt_ecap %>% mutate(age=(ymd(dtindex)-dNaixement)/365.25 %>% as.numeric(
 # Data index numerica --------
 dt_ecap<-dt_ecap %>% mutate(anyindex=year(ymd(dtindex)))
 
-# Generar matching   -----------------
-descrTable(grup~sexe+age,data=dt_ecap)
 
+# Generar matching (dt_ecap filtrats)  -----------------
+dt_temp<-dt_ecap %>% filter(filtre_exitus==0 & filtre_TBC==0 & dt_agencia==1)
+descrTable(grup~sexe+age,data=dt_temp)
 
-dt_ecap_matchejades<-dt_ecap %>% generar_matching(vars_matching=c("sexe","age","anyindex"),grup="DG.DM_cat",ratio=1)
+dt_ecap_matchejades<-dt_temp %>% 
+  generar_matching(vars_matching=c("sexe","age","anyindex"),grup="DG.DM_cat",ratio=1)
 
 descrTable(grup~sexe+age+anyindex,data=dt_ecap_matchejades)
 
+rm(dt_temp)
+
+# Ara afegir PS en dt_ecap
 dt_ecap<-dt_ecap %>% left_join(select(dt_ecap_matchejades,CIP,PS),by="CIP")
 
 
-
 # Arreglar dt_agencia ---------------
-
 # Filtro aquells que tenen data de TBC en qualsevol moment o marcats com a DM o control en variable
 dt_agencia<-dt_agencia %>% filter(!is.na(DET_TB) | !is.na(DIABETIS)) 
 
@@ -176,21 +170,13 @@ dt_agencia<-dt_agencia %>% left_join(dt_agencia %>% group_by(CIP) %>% summarize(
 # Afegeixo edat + sexe de dt_ecap ------------------
 dt_agencia<-dt_agencia %>% left_join(select(dt_ecap,CIP,sexe,age,PS,grup,event_tbc,DG.TBC_cat),by="CIP") %>% select(-EDAT,-GENERE)
 
+# Guardo en arrel 
+# save(dt_agencia, file="dt_agencia.Rdata")
 
-save(dt_agencia, file="dt_agencia.Rdata")
+# Salvo dades  --------------------
 
 
-
-# Conductors de dt_ecap
-# Conductor de dt_agencia
-
-dades<-dt_ecap
-
-ActualitzarConductor2(dades,"variables_tbc_ver2.xlsx")
-
-ActualitzarConductor2(d=dades,taulavariables = "variables_tbc_ver2.xlsx")
-
-write.csv2(names(dt_ecap),"lll.csv")
+save(dt_ecap,dt_agencia, file=here::here("dades/output","output2.Rdata"))
 
 
 
@@ -199,16 +185,9 @@ write.csv2(names(dt_ecap),"lll.csv")
 
 
 
-# Aparello dades de l'agencia  -----------------
-descrTable(grup~sexe+age,data=dt_agencia)
 
-dt_agencia_matchejades<-select(dt_ecap,-PS) %>% 
-  filter(filtre_exitus==0 & filtre_TBC==0 & dt_agencia==1) %>% 
-  generar_matching(vars_matching=c("sexe","age"),grup="DG.DM_cat",ratio=1)
 
-descrTable(grup~sexe+age,data=dt_agencia_matchejades)
 
-## 
 
 
 
@@ -239,66 +218,10 @@ descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T )
 descrTable(grup~sexe+age,data=dades)
 
 
-#  ------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 4. Format: Netejar espais en blanc   -----------
-
-dt_ecap<-netejar_espais(dt_ecap)
-dt_agencia<-netejar_espais(dt_agencia)
 
 # 5. Eliminar duplicats  --------------
-
 #         dt_agencia 
-
-
-
-
 # Filtro per CASOS
 dt_agencia<-dt_agencia %>% filter(repe==1 | (repe>1 & Mostra=="CASOS"))
 
@@ -308,60 +231,6 @@ dt_agencia<-dt_agencia %>% left_join(dt_agencia %>% group_by(CIP) %>% summarize(
 # Agafo registre unic 
 dt_agencia<-dt_agencia %>% filter (N==1 | INDIGENT=="NO") %>% select(-N)
 
-
-# 6. Càlculs   -----------------
-dades<-dt_ecap
-
-# Tots els DM (CASOS) -- > data DM post = NA 
-dades<-dades %>% mutate(EV.DM=ifelse(Mostra=="CASOS",NA,EV.DM),EV.DM=lubridate::as_date(EV.DM)) 
-
-# Data_DM
-dades<-dades %>% mutate(data_ANT_DM=DG.DM)
-dades<-dades %>% mutate(data_EV_DM=EV.DM)
-
-# Diagnostics/Events basals (Recode) (NA --> 0 (Else=1) (No hi ha 0))
-dades<-dades %>% mutate_at(vars(starts_with("DG.")),funs(if_else(is.na(.) | 0,0,1))) 
-dades<-dades %>% mutate_at(vars(starts_with("EV.")),funs(if_else(is.na(.) | 0,0,1))) 
-
-# Antedecentes / Eventos / Final de Diabeticos 
-dades<-dades %>% mutate(ant_dm=if_else(is.na(DG.DM),0,1))
-dades<-dades %>% mutate(event_dm=if_else(is.na(EV.DM),0,1))
-dades<-dades %>% mutate(final_dm=if_else(event_dm | ant_dm,1,0))
-
-
-# Evento/Antecedente Tuberculosis SI / tuberculosis NO 
-dades<-dades %>% mutate(event_tb = ifelse(DET_TB>lubridate::ydm(20070101),1,0),
-                        event_tb = ifelse(event_tb==0 | is.na(event_tb),0,1),
-                        dt_event_tb=ifelse(event_tb,DET_TB,NA) %>% lubridate::as_date())
-
-#
-# Temps de seguiment (data_fi de seguiment)
-
-#TIEMPOS; / Si se detecta TB fecha fin esa fecha / #Si muere fecha fin esa fecha, / #Si es control y se detecta DM , esa fecha de diagnostico 
-# SINO Fecha Fin (Ultima detección de TB)
-
-dades<-dades %>% mutate(data_exitus=ifelse(situacio=="D",dsituacio,NA) %>%lubridate::as_date() ,
-                     data_trasllat=ifelse(situacio=="T",dsituacio,NA) %>%lubridate::as_date() ) 
-
-
-# Data final--> minima entre data exitus / event / DM
-dades<-dades %>% mutate(data_final=pmin(data_exitus,
-                         
-                         dt_event_tb,
-                         data_EV_DM,
-                         as.Date("2018-02-15"),
-                         na.rm=T)) 
-
-dades %>% count(event_tb)
-dades %>% mutate(pp=ifelse(dt_event_tb>data_EV_DM,0,event_tb)) %>% select(event_tb,pp) %>% count(event_tb)
-
-
-
-#CRITERIOS EXCLUSION 
-#Todos los que se les haya detectado TB antes del 01/01/2007
-dt_total<-dt_total %>% filter((DET_TB >= dat_inici | is.na(DET_TB))) #Eliminados todos los TB antes del 2007
-#Todos los muertos (situacio = D) antes del 01/01/2007 el resto los dejamos 
-dt_total <- dt_total %>% filter((situacio == "D" & dsituacio > dat_inici) | situacio %in% c("A", "T"))
 
 
 
