@@ -1,10 +1,11 @@
 # Retorna dades matchejades 1:1 en funció de una llista de variables 
-generar_matching<-function(dt=dt_ecap,vars_matching=c("sexe","age"),grup="DG.DM_cat",ratio=1) {
+generar_matching<-function(dt=dt_ecap,vars_matching=c("sexe","age"),grup="DG.DM_cat",ratio=1,exact=NA) {
 
   # dt=dt_ecap
   # vars_matching=c("sexe","age")
   # grup="DG.DM_cat"
   # ratio=1
+  # exact=NA
   
   dadesmatching<-dt %>% select(vars_matching) %>% bind_cols(select_(dt,"idp",grup))
   
@@ -12,7 +13,7 @@ generar_matching<-function(dt=dt_ecap,vars_matching=c("sexe","age"),grup="DG.DM_
   formulaPS<-as.formula(paste(grup, paste(vars_matching, collapse=" + "), sep=" ~ "))
   
   dt.matched<-formulaPS %>% 
-    matchit(method="nearest",data=dadesmatching,ratio=ratio,caliper=0.01,distance = "logit") %>%    # FAig el matching 1 a 1
+    matchit(method="nearest",exact=exact,data=data.frame(dadesmatching),ratio=ratio,caliper=0.01,distance = "logit") %>% 
     weights() %>%                                                            # Guardo els pesos 
     data.table() %>% 
     'colnames<-'(c("PS")) %>%  as_tibble() %>% 
@@ -20,8 +21,6 @@ generar_matching<-function(dt=dt_ecap,vars_matching=c("sexe","age"),grup="DG.DM_
     filter(PS==1) %>% 
     as_tibble() 
   }
-
-
 
 # FUNCIÓ 
 valida_quanti<-function(dt=dades,y="valor_basal.GLICADA",grup="constant") {
@@ -36,3 +35,6 @@ valida_quanti<-function(dt=dades,y="valor_basal.GLICADA",grup="constant") {
     dplyr::summarise_(min=summ1,
                       max=summ2,
                       n="n()") %>%  rename("group"=grup) }
+
+
+

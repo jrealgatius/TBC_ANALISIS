@@ -1,8 +1,6 @@
 ---
-title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 author: "Ramó Puig, Elena Navas i Jordi Real"
 website: "https://github.com/USR-DAPCAT/"
-
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 
 output:
@@ -14,15 +12,23 @@ output:
     css: logos_css/usr_styles.css
   pdf_document: default
   word_document: default
+  
+params:
+  metode: "PS"
+  subtitul: ""
+
+title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
+subtitle: "`r params$subtitul`"
 
 ---
+
 
 &nbsp;
 <script>
    $(document).ready(function() {
      $head = $('#header');
-     $head.prepend('<img src=\"logos_css/logoIDIAP.png\" style=\"float: right ;width: 130px;\"/>')
-     $head.prepend('<img src=\"logos_css/logo_bio.jpg\" style=\"margin-left:25% ;width: 80px;\"/>')
+     $head.prepend('<img src=\"https://www.idiapjgol.org/images/logo.png\" style=\"float: right ;width: 130px;\"/>')
+     $head.prepend('<img src=\"https://avatars2.githubusercontent.com/u/57066591?s=200&v=4\" style=\"margin-left:25% ;width: 80px;\"/>')
      $head.prepend('<img src=\"logos_css/logoDAP_Cat.png\" style=\"float: left:1;width: 185px;\"/>')
    });
 </script>
@@ -47,19 +53,28 @@ output:
 - 3.	Analizar si el grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
 - 4.	Analizar el papel de la inmigración en la relación entre DM y TB.
 
-
 -----
 
 ## Actualizaciones 
+
+&check; Actualitzat event TBC amb data de tractament / data notificació (primera entre amdues)  / o DET_TB segons E-CAP en cas contrari <br/>
+&check; Consideració de qualsevol DM (I o II) <br/>
+&check; Primera data de TBC en cas de repetició de TBC <br/>
+&check; Eliminats morts a 01/01/2007 (dades agencia i dades e_cap)<br/>
+&check; Neteja de dades, data de mort previa a diagnostics i Events <br/>
+&check; Anàlisis matching matching Cohort estatíca  <br/>
+&check; Anàlisis matching matching Cohort dinàmica amb variables depenent del temps <br/>
+&check; Programació dinamica <br/>
+&check; Anàlisis temps dependent cohort dinàmica <br/>
+&check; Anàlisis exploratori dades agència <br/>
+
+## Hecho: 
 
 &check; Generació de 251 variables <br/>
 &check; Actualització de dades de l'Ecap  <br/>
 &check; Vinculació de taules E-cap <br/>
 &check; Depuració de dades  <br/>
 &check; Reprogramació i generació de resultats  <br/>
- 
-## Hecho: 
-
 &check; Lectura de tablas de históricos de E-Cap proporcionadas por Basic
 &check; Agregación en fecha de inclusión (1/2007)
 &check; vinculación de tablas en una
@@ -72,9 +87,9 @@ output:
 ## Pendiente: 
 
 - Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
-- Etiquetar variables
+- Etiquetar variables y  valors
 - Análisis por objetivos
-- Generar cohorte dinámica y/o apareada
+- Subanálisis
 
 ## Consideraciones / limitaciones:
 
@@ -91,23 +106,33 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, include=F,size
 library(ggplot2)
 library(dplyr)
 library(survminer)
+library(compareGroups)
 
 # CArrego funcions -------------------
 link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
 devtools::source_url(link_source)
 
 conductor_variables<-here::here("variables_tbc.xls")
+conductor_agencia<-here::here("conductor_agencia.xls")
 
-#   template: template.html
+if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
+if (params$metode=="estatica") dir_output<-"dades/output"
+if (params$metode=="PS") dir_output<-"dades/output_PS"
+
 ```
 
 
-```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
-# Formateig ----------------
-load(here::here("dades/output","output2.Rdata"))
+```{r, include=FALSE}
+
+load(here::here(dir_output,"output3.Rdata"))
 dt_ecap<-netejar.noms.variables(dt_ecap)
 dades<-dt_ecap
 
+```
+
+
+```{r formateig, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+# Formateig ----------------
 # Calcul de variables noves edat etc..
 
 # Recode dates / factorització 
@@ -117,7 +142,7 @@ dades<-dades %>% mutate_at(vars(starts_with("FP.")), ~if_else(is.na(.),"No","Si"
 
 dades<-dades %>% mutate(PS=if_else(is.na(PS),0,1))
 
-dades<-dades %>% factoritzar.NO.YES("factoritzarSINO",conductor_variables)
+dades<-dades %>% factoritzar.NO.YES("factoritzarSINO",taulavariables=conductor_variables)
 
 # Recode rangs de valors fora de l'interval a missings Reals (missings de valors reals)
 dades<-recode_to_missings(dades,taulavariables = conductor_variables,rang="rang_valid")
@@ -125,74 +150,107 @@ dades<-recode_to_missings(dades,taulavariables = conductor_variables,rang="rang_
 # Calcul de dies i anys lliure de TBC 
 dades<-dades %>% mutate (dies_lliure_tbc=as.numeric(temps_tbc),anys_lliure_tbc=dies_lliure_tbc/365.25)
 
-
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
 
+# Etiquetes de valors
+dades<-etiquetar_valors(dades, variables_factors= conductor_variables,fulla="etiquetes")
+
+# Relevel 
+dades<- dades %>% mutate(grup=relevel(grup, "Control"))
 
 
 ```
 
 
+```{r formateig_agencia, include=T}
+#variable.names(dt_plana_agencia)
+dt_agencia<-netejar_espais(dt_agencia)
+dt_agencia<-netejar.noms.variables(dt_agencia)
+
+# Repetits
+N_CIP<-dt_agencia%>% filter(repe>1)%>% select(CIP)
+
+# Filtrar dades de TBC incloses en subestudi dades ecap)
+dt_agencia<-dt_agencia %>% semi_join(dt_ecap, by="CIP") 
+
+#RECODES / CALCULS     
+dt_agencia<-dt_agencia %>% mutate(MORT2=if_else(is.na(MORT),0,1))
+
+# Variable indicadora dades TBC provinents agencia
+dt_agencia<-dt_agencia %>% mutate(dt_agencia=ifelse(is.na(NUM_REG),0,1))
+
+# Factoritzar
+vars_factor<-extreure.variables("factoritzar",conductor_agencia)
+dt_agencia<-dt_agencia %>% mutate_at(vars_factor,as.factor)
+
+# Etiquetar 
+dt_agencia<-etiquetar(d=dt_agencia,taulavariables=conductor_agencia)
+dt_agencia<-etiquetar_valors(dt=dt_agencia,variables_factors=conductor_agencia,fulla="etiquetes",camp_etiqueta="etiqueta2")
+
+
+```
+
 # Método 
+- Diseño de Cohortes retrospectivas.  
+- Periodo de reclutamiento: 2007 / 2007-2016 con seguimiento hasta 31/12/2018
+- Criterios de inclusión: Pacientes de **Ciutat Vella** incluidos en registros clínicos vinculados con el registro del programa de prevención y control de Tuberculosi de Barcelona. 
+- Fuentes de datos: 
 
-Cohorte estatica a 01/2007 con seguimiento hasta 31/12/2018
+## Análisis 
 
-Criterios de inclusión: Pacientes DM y controles de **Ciutat Vella** vinculados con el registro del programa de prevención y control de Tuberculosi de Barcelona. 
+1. Cálculo de incidéncia de TBC global y por grupos segun casos incidentes de TBC detectados y usando como denominador las personas-tiempo seguidas.  
+2. Para analizar el riesgo de TBC associada a la Diabetis y otros factores associados se han usado modelos de regressión de COX con variables dependientes del tiempo. La cohorte dinámica se ha Modelos de COX usados han sido por clusters. The cluster term is used to compute a robust variance for the model. The term + cluster(id) where each value of id is unique is equivalent to specifying the robust=TRUE argument. If the id variable is not unique, it is assumed that it identifies clusters of correlated observations.
 
 ## Flowchart
 
 ```{r flow_filtres,include=T}
 
-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T)
+criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
 
 dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
-
-
 
 # ![](logoDAP_Cat.png)
 ```
 
 
+# Resultats
 
+## Exploratori de validació 
 
-```{r preparacio,include=F}
+```{r exploratori, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
+# T BASAL -------------
 
+formu<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
+
+descrTable(formu,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1) %>%
+  export2md(caption = "Mediana [Min; Max] Descriptiva de validació per grups")
 
 ```
 
-# Resultats
 
-## Característiques basals
+## Característiques basals per grups
 
 - Descriptiu de característiques basals entre grups
 
 
 ```{r resultats1, include=T, warning=FALSE,echo=FALSE, message=F}
 
-# T BASAL -------------
+formu<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
 
-# formula<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
-# T1_BASAL<-descrTable(formula,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1)
-# export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
+T1_BASAL<-descrTable(formu,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "No")
 
+export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups (Mitjana (SD))")
 
-formula<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables)
-T1_BASAL<-descrTable(formula,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "No")
-export2md(T1_BASAL,caption = "Descriptiva de caracterítiques basals entre grups")
-
-
-dades %>% group_by(descNacionalitat) %>% count() %>% kable() %>% kableExtra::kable_styling()
-
+# dades %>% group_by(descNacionalitat) %>% count() %>% kable() %>% kableExtra::kable_styling()
 
 ```
 
 
 ## Incidència de TBC
 
-```{r analisis2, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
-
+```{r analisis5, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 # T BASAL -------------
 
 kable(resum_events(dades = dades,evento="event_tbc",temps="anys_lliure_tbc",valorevent = "1"),caption="Resum d'events") %>% kableExtra::kable_styling()
@@ -205,35 +263,85 @@ taula_IA_grup<-dades %>% base::split(dades$grup) %>%
 
 kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
 
-
 descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
-
-
-
 ```
 
-## HR ajustats
+
+## HR Crus i ajustats
 
 ```{r analisis3, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
+if (params$metode=="dinamica") cluster="case.id" else cluster=""
 
-HR.COX(x="v.ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables) %>% kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+HR.COX(x="DM_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR cru") %>% kableExtra::kable_styling()
+
+HR.COX(x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
 
 
 
 ```
 
 
-## Supervivencia K-M 
+## Supervivencia K-M
 
 ```{r figura1, include=T}
-
-
 
 survfit(surv_tbc ~ grup, data=dades) %>%
   ggsurvplot(title="TB detection in patient with or without DM",
              p.val=T, xlab="Time (days)", censor=F, linetype="strata",
              fun="event", cumevents = T)
+
+
+
+```
+
+## Objetivos secundarios
+
+- 3.	Grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
+
+```{r, include=T}
+
+HR.COX(x="HB_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+HR.COX(x="HB_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+
+
+```
+
+
+# Estudi exploratori dades de l'Agencia
+
+> Descriptiu general dels casos de TBC ja siguin antencedents o events de la base de dades de l'Agència
+> Casos amb CIP inclosos en subestudi
+
+```{r filtre_agencia,include=F}
+
+# Dubtes de si filtrar per subestudi o no
+
+# Grups de dades general
+
+# 1. Dades amb qualsevol event registrat (Agencia o E-CAP) (N=703) dels que tinc a E-CAP (Events + Antecedents) 
+# 2. Dades de pacients de subestudi presentat que compleixen criteris d'inclusió (excloents antecedents de TBC ambdues fonts)
+# 3. Dades dels pacients del subestudi presentat sense excloure antecedents, independentment del seguiment
+
+# Ara filtro amb events de  subestudi que siguin de 
+dt_agencia<-dt_agencia %>% semi_join(dades, by="CIP") %>% filter(dt_agencia==1)
+
+
+``` 
+ 
+
+```{r resultats_agencia,include=T}
+
+
+formula<-formula.text("taula",y="",taulavariables = conductor_agencia)
+descrTable(formula,data=dt_agencia,max.xlev = 100,show.n = T,hide.no="NO",simplify=F,method = 2, Q1=0,Q3=1) %>% 
+  export2md(caption = "Descriptiva dades: Frequencia, Mín i Max)")
 
 
 ```

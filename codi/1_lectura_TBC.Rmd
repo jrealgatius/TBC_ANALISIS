@@ -1,0 +1,497 @@
+---
+params:
+  dtindex_dinamica: no
+  llistaPS:
+  - sexe
+  - any_naix
+  metode: "estatica" # "dinamica" / "estatica" / "PS"
+  num_controls: 1
+---
+
+# FASE LECTURA  
+
+##  Aplicació lectura de dades / aplanament / criteris d'inclusió 
+
+```{r setup, include=T}
+knitr::opts_chunk$set(echo = T, message=T, warning=T, include=T,size="huge")
+
+memory.size(max=160685)
+# 
+# 1. Càrrega de funcions / llibreries
+gc()
+library(dplyr)
+library(here)
+library(lubridate)
+library(heaven,lib="C:/Rpackages/heavenv2")
+
+link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+devtools::source_url(link_source)
+
+source(here::here("codi","global_TBC.R"))
+
+
+# 2. Paràmetres  ----------------------
+
+# fitxer conductor cataleg 
+fitxer_conductor_cataleg<-here::here("cataleg_tbc.xls")
+# fitxer conductor variables
+fitxer_conductor_variables<-here::here("variables_tbc.xls")
+# fitxer conductor GENERAL
+fitxer_conductor_general<-here::here("variables_general.xls")
+
+
+```
+
+## 3. Lectura fitxers
+
+> "farmacia.csv", "Laboratori.csv", "PSalut.csv", "Vacunes.csv", "Variables.csv", "vardemografiques.csv" 
+
+> Actualització de 4 nous fitxers: "PSalut2.csv", "Laboratori2.csv" , "pob ciutat vella ene 2007.csv" "farma2_fisdmtbv.csv"
+
+> Actualització de 4 nous fitxers: "PSalut3.csv", "Laboratori3.csv" , "pob ciutat vella ene 2007_3.csv" "farma2_fisdmtbv_3.csv"
+
+> Actualització d'un fitxer: "extracció tbc dm metode antic-1.csv"
+
+
+```{r lectura, warning=F}
+CATALEG<-readxl::read_excel(fitxer_conductor_cataleg,col_types = "text")
+#     Problemes de salut ----------
+dt_psalut3<-read.csv2(here::here("dades","PSalut3.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_psalut<-read.csv(here::here("dades","extracció tbc dm metode antic-1.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+# Fusió problemes
+dt_psalut<-dt_psalut %>% bind_rows(dt_psalut3) %>% select(cipACT,codiPSalut,ddeteccio)
+rm(dt_psalut3)
+
+#     Laboratori/Variables -------------
+# dt_laboratori_antic<-read.csv(here::here("dades","Laboratori.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_laboratori<-read.csv(here::here("dades","Laboratori3.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_variables<-read.csv2(here::here("dades","Variables.csv"), header=T, sep=";",dec=".",fileEncoding="utf-16") %>% as_tibble()
+dt_variables<-dt_variables %>% mutate (VU_VAL= VU_VAL %>% as.character() %>% as.numeric())
+# fusionar ambdues fonts
+dt_variables<-dt_variables %>% bind_rows(dt_laboratori)
+rm(dt_laboratori)
+
+#     Vacunes ---------------
+dt_vacunes<-read.csv(here::here("dades","Vacunes.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+
+#     Farmacia  -------------
+dt_farmacia<-read.csv(here::here("dades","farmacia.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_farmacia_nou<-read.csv(here::here("dades","farma2_fisdmtbv.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
+dt_insuline<-read.csv(here::here("dades","insulina.csv"), sep=";") %>% as_tibble()
+
+# Formatejo farmacia
+dt_farmacia<-dt_farmacia %>% select(CIP=PPFMC_PMC_USUARI_CIP,ATC=PPFMC_ATCCODI,datainici=PPFMC_DATA_INI_SIRE,datafi=PPFMC_DATA_FI_SIRE)
+dt_farmacia_nou<-dt_farmacia_nou %>% select(CIP=PPFMC_PMC_USUARI_CIP,ATC=PPFMC_ATCCODI,datainici=PPFMC_PMC_DATA_INI,datafi=PPFMC_DATA_FI)
+dt_insuline<-dt_insuline %>% select(CIP=PPFMC_PMC_USUARI_CIP,ATC=PPFMC_ATCCODI,datainici=PPFMC_DATA_INI_SIRE,datafi=PPFMC_DATA_FI_SIRE)
+
+# Fusiono farmacia
+dt_farmacia<-dt_farmacia_nou %>% bind_rows(dt_farmacia) %>% bind_rows(dt_insuline)
+rm(dt_farmacia_nou,dt_insuline)
+
+#     Demografiques -------------------
+dt_demografiques_antic <- read.csv2(here::here("dades", "vardemografiques.csv"), sep=";") %>% as_tibble()
+dt_demografiques_antic <- read_xls(here::here("dades", "vardemografiques.xls")) %>% as_tibble() %>% 
+  mutate(dNaixement= as.Date(dNaixement),dsituacio= as.Date(dsituacio))
+
+dt_demografiques <- read.csv2(here::here("dades", "pob_ciutat_vella_ene_2007.csv"), sep=";",header=T,fileEncoding="utf-16") %>% as_tibble()
+dt_demografiques<-dt_demografiques %>% rename (CIP=cipACT) %>% 
+  mutate(dsituacio=stringr::str_sub(as.character(dsituacio),1,10),
+         dNaixement=stringr::str_sub(as.character(dNaixement),1,10))
+
+# Agrego per CIP I agafo la última situació 
+dt_demografiques<-dt_demografiques %>% 
+  transmute(CIP,sexe,situacio,dNaixement=lubridate::ymd(dNaixement),ABS,dsituacio=lubridate::ymd(dsituacio)) %>% 
+  group_by(CIP) %>% dplyr::slice(which.max(dsituacio))
+
+# Fusiono ambdues bases de dades (dt_demografiques_antic + dt_demografiques)
+dt_demografiques<-dt_demografiques %>% bind_rows(dt_demografiques_antic)
+
+
+# Elimino duplicats (primer valor vàlid)  
+dt_demografiques <- dt_demografiques %>%  
+  group_by(CIP) %>%
+  summarise_each(funs(dplyr::first(.[!is.na(.)]))) %>% ungroup()
+
+rm(dt_demografiques_antic)
+
+#     Cataleg Medea  -------------
+cataleg_medea<-read_excel(here::here("dades", "catalegEAP_BCN_MEDEA3.xls"),skip=3) %>% as_tibble()
+
+# Visites     ------------
+dt_visites <- read.csv(here::here("dades", "visites.csv"), sep=";") %>% as_tibble()
+
+
+#     Fitxer general de TBC (dt_dades) agencia + creuament ----------------
+dt_dades <- readxl::read_excel(here::here("dades","General.xlsx"))
+
+# Verificació de CIPS   ------------
+dt_cips_antic <- readxl::read_excel(here::here("dades/Cips.xls")) %>% mutate(CIP=CIP2)
+dt_cips <- dt_demografiques %>% select(CIP)
+dt_cips_antic %>% anti_join(dt_cips, by="CIP")
+
+
+```
+
+# Formatar dades (I)
+
+```{r Formatar1}
+# Formatar dates
+dt_dades<-dt_dades %>% mutate(DATA_NAIX=as.Date(DATA_NAIX, origin = "1899-12-30"),
+                    DAT_INCL=as.Date(DAT_INCL, origin = "1899-12-30"),
+                    DAT_MORT=as.Date(DAT_MORT, origin = "1899-12-30"),
+                    DET_TB=as.Date(DET_TB, origin = "1899-12-30"),
+                    DAT_LLEGADA=as.Date(DAT_LLEGADA, origin = "1899-12-30"),
+                    INICITRACT=as.Date(INICITRACT,origin = "1899-12-30"),
+                    DAT_NOTIF=as.Date(DAT_NOTIF,origin = "1899-12-30"))
+
+# Actualitzar DATA TBC (DET_TBC amb INITRACT o DAT_NOTIF (MÍNIMA ENTRE LES DUES) I Si no n'hi ha cap DET_TBC)
+dt_dades<-dt_dades %>% mutate(DET_TB_ECAP=DET_TB,
+                              DET_TB=pmin(INICITRACT,DAT_NOTIF,na.rm = T),
+                              DET_TB=if_else(is.na(DET_TB),DET_TB_ECAP,DET_TB))
+
+# Actualitzar dt_demografiques  amb dades generals de l'agencia (sobretot els 1643 que no teniem en E-cap)
+# Formatejo dades de dt_dades
+dades_temp<- dt_dades %>% transmute(CIP,
+                       sexe=if_else(str_sub(CIP,5,5)=="1","D","H"),
+                       dNaixement=paste0("19",str_sub(CIP,6,7),str_sub(CIP,8,9),str_sub(CIP,10,11)) %>% lubridate::ymd(),
+                       situacio=MORT,
+                       dsituacio=lubridate::as_date(DAT_MORT),
+                       Mostra,
+                       ABS,
+                       descUP=BARRI,
+                       INCL_CVELLA)
+
+# selecciono només aquells CIPS que no estan a dades demografiques (n=1643)
+dades_temp<-dades_temp %>% anti_join(dt_demografiques,by="CIP") 
+
+# I ara afegeixo aquestos a demografiques amb total (Actualitzo dades )
+dt_demografiques<-dt_demografiques %>% bind_rows(dades_temp)
+rm(dades_temp)
+# agafar CIPS unics
+dt_demografiques<-dt_demografiques %>% group_by(CIP) %>% slice(1) %>% ungroup()
+
+#     Capturo primera data_TBC de dades_dt (Agencia) en dt_demografiques  ---------------
+temp<-dt_dades %>% select(CIP,DET_TB) %>% group_by(CIP) %>% slice(which.min(DET_TB)) %>% ungroup() 
+dt_demografiques<-dt_demografiques %>% left_join(temp,by="CIP")
+# Afegeixo segon event de TBC
+temp2<-dt_dades %>% select(CIP,DET_TB) %>% group_by(CIP) %>% slice(which.max(DET_TB)) %>% ungroup() %>% transmute(CIP,DET2_TB=DET_TB)
+dt_demografiques<-dt_demografiques %>% left_join(temp2,by="CIP") %>% mutate(DET2_TB=ifelse(DET2_TB==DET_TB,NA,DET2_TB)) 
+rm(temp,temp2)
+
+# Elimino difuns previs a 2007 (dades ecap (dt_demografiques) i dades agencia (dt_dades))
+dt_demografiques<-dt_demografiques %>% filter(!(situacio=="D" & dsituacio<lubridate::ymd(20070101)))
+dt_dades<-dt_dades %>% filter(!(MORT=="D" & DAT_MORT<ymd(20070101)) | is.na(DAT_MORT))
+
+# Actualització situacio o data final de seguiment a 31/12/2018 o mort --------------
+data_maxima<-20181231
+dt_demografiques %>% valida_quanti("dsituacio","situacio")
+
+dt_demografiques<- dt_demografiques %>% 
+  mutate(dsituacio=ifelse(dsituacio>ymd(data_maxima),ymd(data_maxima),dsituacio),
+         dsituacio=ifelse(situacio=="D",dsituacio,ymd(data_maxima)),
+         dsituacio=ifelse(is.na(dsituacio),ymd(data_maxima),dsituacio),
+         dsituacio=as_date(dsituacio),
+         situacio=ifelse(is.na(situacio),"A",situacio)) 
+
+dt_demografiques %>% valida_quanti("dsituacio","situacio")
+
+# Neteja 
+rm(dt_cips_antic)
+```
+
+# 4. Formatar dades (II) -------------
+
+> Filtro per CIPS existents en ecap (dt_demografiques)
+> Filtro historics DG a data fi de reclutament 31/12/2016 (¿?)
+
+```{r Formatar2}
+data_fi_reclutament<-"20161231"
+
+#4.1 DT_PSALUT
+dt_psalut<- dt_psalut %>% 
+  semi_join(dt_demografiques,by=c("cipACT"="CIP")) %>% 
+  mutate(cod = ifelse(codiPSalut  %like% "C01-", substr(codiPSalut,5,15), as.character(codiPSalut)) %>% str_sub(1,5),
+  dat=as.Date(ddeteccio)) %>% 
+  select(CIP=cipACT,cod,dat) %>%  
+  mutate(idp=CIP) 
+# %>% filter((dat<=lubridate::ymd(data_fi_reclutament)))  # Trunco dg basals i reclutament a 31/12/2016 (Pero potser no cal pels events) 
+dt_psalut %>% valida_quanti("dat")
+
+#4.2 de_variables
+dt_variables<-dt_variables %>% mutate (cod=VU_COD_VS) %>% left_join(select(CATALEG,cod,grup))
+dt_variables <- dt_variables %>% 
+  semi_join(dt_demografiques,by=c("VU_COD_U"="CIP")) %>% 
+  transmute(CIP=VU_COD_U,
+            cod=grup,
+            dat=as.Date(VU_DAT_ACT),
+            val=VU_VAL) %>% 
+  filter((dat<=lubridate::ymd(data_fi_reclutament)))
+
+#4.3 DT_VACUNES
+dt_vacunes<- dt_vacunes %>% 
+  semi_join(dt_demografiques,by=c("VA_U_USUA_CIP"="CIP")) %>% 
+  transmute (CIP=VA_U_USUA_CIP,
+             cod=VA_U_COD,
+             dat=as.Date(VA_U_DATA_VAC)) %>% 
+  filter((dat<=lubridate::ymd(data_fi_reclutament)))
+dt_vacunes %>% valida_quanti("dat")
+
+#4.5 DT_FARMACIA 
+dt_farmacia<-dt_farmacia %>% 
+  semi_join(dt_demografiques,by="CIP") %>% 
+  transmute(CIP,
+            cod=ATC,
+            dataini=as.Date(datainici),
+            datafi=as.Date(datafi)) 
+dt_farmacia %>% valida_quanti("dataini")
+
+#4.7 DT_VISITES
+dt_visites<-dt_visites %>% 
+  semi_join(dt_demografiques,by=c("cip"="CIP")) %>% 
+  transmute(CIP=cip,any,servei=as.character(servei),tipus.visita =as.character(tipus.visita),N)
+dt_visites %>% valida_quanti("any")
+
+```
+
+# Generar data índex
+
+> Cohort dinàmica: 01/01/2007 en DM prevalents / entre 01/01/2007 i 31/12/2016 en Incidents
+> Cohort estatica: 01/01/2007 (DM  no DM seguits desde basal)
+> Potencials exposats DM poden tenir un antecedent de TBC? Si però s'ha de tenir en compte que data fi es fins a seguent TBC 
+
+```{r Generar_dtindex}
+data_fi_reclutament<-"20161231"
+
+# 5.2. Generar data_index segons primer DM detectat en problemes de salut durant reclutament  --------
+dt_dtindexDM<-
+  dt_psalut %>% filter (dat<=ymd(data_fi_reclutament)) %>%  #Fi de reclumantet 
+  semi_join(CATALEG %>% select(cod,DM) %>% filter(DM=="DM"),by="cod") %>% 
+  group_by(idp) %>% 
+  dplyr::slice(which.min(dat)) %>% # selecciono CIP amb data mínima
+  ungroup() 
+
+# 5.3. data index (Dinamica)   -----------------
+# Genero data index segons dataDM, Anteriors a 2007 --> 01/2007 els posteriors durant seguiment fins 31/12/2016
+data_index_agregacio<-dt_dtindexDM %>% 
+  select(idp,data=dat) %>% mutate(data=data.to.string(data)) %>% 
+  mutate(data=if_else(data<"20070101","20070101",data),grup=1)
+data_index_agregacio %>% valida_quanti("data")
+
+# # Elimino aquells que tenen un antecedent de TBC previ a l'exposició (DM) 
+# # Afegeixo TBC d'Agencia dt_demografiques
+# data_index_agregacio<-data_index_agregacio %>%
+#   left_join(select(dt_demografiques,CIP,DET_TB),by=c("idp"="CIP")) %>%
+#   filter(ymd(data)<DET_TB | is.na(DET_TB)) %>% select(-DET_TB)
+# data_index_agregacio %>% valida_quanti("data")
+```
+
+# Generar data índex 2
+> Si es dinamica generar dates index entre els controls 
+> Ojo que dtdades agencia (n'Hi ha repetits)
+
+```{r Generar_dtindex2 }
+
+if (params$metode=="dinamica") {
+  
+  # Variable indicadora de dt_general (agencia)
+  dt_agencia<-dt_dades %>% transmute(CIP,dt_general=1) %>% group_by(CIP) %>% slice(1) %>% ungroup()
+  
+  # Afegeixo en dt_demografiques (ECAP) indicador de General de dades agencia
+  dt_demografiques<-dt_demografiques %>% 
+    left_join(dt_agencia,by="CIP") %>% 
+    mutate(dt_general=if_else(is.na(dt_general),0,1))
+  
+  # Data sortida en potencials controls -> minima entre data d'exitus / data TBC / data maxima (20161231) 
+  data_maxima<-"20161231"
+
+  # Junto en dades ecap data index pels exposats
+  KK<- dt_demografiques %>% 
+    left_join(data_index_agregacio,by=c("CIP"="idp")) %>% 
+    transmute(idp=CIP,grup,data,situacio,data0="20070101",dsituacio,
+              DET_TB,DET2_TB=as_date(DET2_TB),data_sortida=data_maxima,sexe,dNaixement, dt_general) 
+  
+  # Actualitzar datasortida a data exitus o data TBC(1r o 2n) post data index o datamaxima
+  KK<-KK %>% mutate(data_sortida=ifelse(situacio=="D",data.to.string(dsituacio),data_sortida))  # Data mort
+
+  KK<-KK %>% 
+    mutate(EV_TB=ifelse(!is.na(DET_TB) & DET_TB>ymd(data),DET_TB,NA),EV_TB=as_date(EV_TB)) %>% # Exposats post DM
+    mutate(EV_TB=ifelse(is.na(data) & DET_TB>ymd(20070101),DET_TB,EV_TB),EV_TB=as_date(EV_TB)) %>% # Controls post 01/2007
+    mutate(data0=ifelse(!is.na(data),data,"20070101")) %>% 
+    mutate(data_sortida=pmin(ymd(EV_TB),ymd(data_sortida),na.rm=T)) # Data sortida mínima entre Event i data sortida
+  
+  # Grup exposat / grup control 
+  KK<-KK %>% mutate(grup=if_else(is.na(grup),0,1))  # Grup control
+
+  # Preparar per matchejar i generar grups a risk 
+  KK<-KK %>% 
+    mutate(dtindex_case=ymd(data) %>% as.numeric(), dtindex_control=ifelse(grup==0,data_sortida,NA)) %>% 
+    mutate(any_naix=year(dNaixement)) %>% 
+    unique() %>% # Eliminar repetits
+    group_by(idp) %>% arrange(DET_TB) %>% dplyr::slice(1L) %>% ungroup()
+
+  # MaCHEJAR SEGONS  
+  llistaPS<-params$llistaPS
+  num_controls<-params$num_controls
+  
+  # llistaPS<-c("sexe","any_naix")
+  # num_controls<-1
+  
+  # Filtrar només dades generals
+  KK<-KK %>% filter(dt_general==1)
+  
+  # Matching i genero data index 
+  KK_match<-heaven::exposureMatch(ptid="idp"                   # Unique patient identifier
+                                  ,event="grup"                # 0=Control, 1=case
+                                  ,terms=llistaPS              # terms c("n1","n2",...) - list of vairables to match by
+                                  ,data=KK                     # dataset with all variables
+                                  ,n.controls=num_controls         # number of controls to provide
+                                  ,case.index="dtindex_case"
+                                  ,end.followup="data_sortida"
+                                  ,output.count.controls=T
+                                  ,cores=1
+                                  ,seed	= 123)
+
+  data_index_agregacio<-KK_match %>% transmute(idp,data=grup,data=as_date(dtindex_case) %>% data.to.string())
+  
+  # Elimino repetits en demografiques 
+  dt_demografiques<-dt_demografiques %>% unique()
+  
+  # Filtro dt_demografiques nomes matxejades
+  dt_demografiques<-KK_match %>% 
+    transmute(case.id,CIP=idp,data=as_date(dtindex_case) %>% data.to.string(),grup=grup) %>% 
+    left_join(dt_demografiques,by="CIP")
+  }
+
+# Si es estatica data_index_agregació es 20070101 dels 84988 d'Ecap de moment
+
+if (!params$metode=="dinamica") {
+  
+  dt_demografiques<-dt_demografiques %>% mutate(data="20070101")
+  data_index_agregacio<-dt_demografiques %>% select(idp=CIP,data)
+  }
+
+```
+
+# 5.4. Agregacions
+
+```{r agregacions}
+
+dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                      finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="grup")
+
+# Antecedents 2n nivell
+dt_antecedents.agregada2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                                           finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="subgrup") 
+
+# Antecedents 3n nivell
+dt_antecedents.agregada3<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                                          finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="DM")
+
+# Juntar totes les agregades
+dt_antecedents.agregada<-dt_antecedents.agregada %>% left_join(dt_antecedents.agregada2) %>% left_join(dt_antecedents.agregada3) 
+rm(dt_antecedents.agregada2,dt_antecedents.agregada3)
+
+# Events --------------
+dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                                           finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="grup") 
+
+# Events 2n nivell 
+temp<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                                      finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="DM") 
+
+# Events 3 nivell 
+temp2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
+                         finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="subgrup") 
+
+dt_events.agregada<-dt_events.agregada %>% left_join(temp) %>% left_join(temp2)
+rm(temp,temp2)
+
+# 5.2. Agregar variables basals 
+dt_variables <-dt_variables %>% mutate(idp=CIP) 
+
+dt_variables.agregada<-
+  agregar_analitiques(dt_variables,bd.dindex =data_index_agregacio,finestra.dies=c(-365,+1),sufix = c(".valor", ".dies")) %>% 
+  mutate(dtindex=as_date(dtindex) %>% data.to.string())
+
+# 5.4. Agregar vacunes
+dt_vacunes <- dt_vacunes %>% mutate(idp=CIP,val=1) 
+dt_vac.agregada<-
+  agregar_analitiques(dt_vacunes,bd.dindex =data_index_agregacio,finestra.dies=c(-Inf,+1),sufix = c(".valor", ".dies")) %>% 
+  mutate(dtindex=as_date(dtindex) %>% data.to.string())
+
+# 5.5 Farmacs --------------------
+dt_farmacia<-dt_farmacia %>% mutate(idp=CIP,dat=data.to.string(dataini),dbaixa=data.to.string(datafi)) 
+  
+dt_farmacs_agregada<-
+  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="grup",agregar_data=F) %>% 
+  mutate(dtindex=data.to.string(dtindex))
+
+temp<-
+  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="subgrup",agregar_data=F) %>% 
+  mutate(dtindex=data.to.string(dtindex))
+
+dt_farmacs_agregada<-dt_farmacs_agregada %>% left_join(temp)
+rm(temp)
+
+# 5.6 Visites   ----------------
+dt_visites <- dt_visites %>% mutate(idp=CIP,dat=lubridate::make_date(any),cod=servei) 
+
+dt_visites.agregada <- 
+  agregar_visites(dt_visites, bd.dindex = data_index_agregacio, finestra.dies = c(-365, +Inf),N="N")
+  
+
+```
+
+
+# 6. Fusionar taules en una sola
+
+```{r}
+
+dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>% 
+  left_join(dt_antecedents.agregada,by=c("idp","dtindex")) %>% 
+  left_join(dt_events.agregada,by=c("idp","dtindex")) %>% 
+  left_join(dt_variables.agregada,by=c("idp","dtindex")) %>% 
+  left_join(dt_vac.agregada,by=c("idp","dtindex")) %>%
+  left_join(dt_visites.agregada,by=c("idp","dtindex")) %>% 
+  left_join(dt_farmacs_agregada,by=c("idp","dtindex")) 
+
+```
+
+# Últims coletazos / salvar plana
+
+```{r}
+# Eliminar Espais en blanc de base de dades 
+dt_total<-dt_total %>% netejar_espais()
+dt_dades<-dt_dades %>% netejar_espais()
+
+# Afegir variable dt_Agencia (1.Si / 0. No) en dades_ecap
+# dt_total<-dt_total %>% mutate(dt_agencia=dt_general)
+
+# 7. Salvar fitxers  ------------------- 
+# Renombro i salvo 
+dt_ecap<-dt_total
+dt_agencia<-dt_dades
+
+
+# Crear directori output si no existeix
+if (!dir.exists("dades/output")) {dir.create("dades/output")}
+if (!dir.exists(here::here("dades/output_dinamic"))) {dir.create(here::here("dades/output_dinamic"))}
+
+if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
+if (params$metode=="estatica") dir_output<-"dades/output"
+if (params$metode=="PS") dir_output<-"dades/output_PS"
+
+save(dt_ecap,dt_agencia, file=here::here(dir_output,"output2.Rdata"))
+
+
+# Netejo objectes   --------------------
+rm(dt_cips,dt_vac.agregada,dt_events.agregada,dt_visites.agregada,dt_variables,dt_variables.agregada,dt_psalut,
+   dt_antecedents.agregada,data_index_agregacio,dt_dtindexDM)
+
+
+
+
+```
+  
+
+

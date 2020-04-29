@@ -1,0 +1,261 @@
+---
+params:
+  metode: "estatica" # "dinamica" / "estatica" / "PS"
+---
+
+
+# FASE PREPARACIÓ
+
+```{r setup, include=T}
+
+knitr::opts_chunk$set(echo = T, message=T, warning=T, include=T,size="huge")
+
+memory.size(max=160685)
+#
+# 1. Càrrega de funcions / llibreries
+gc()
+library(dplyr)
+library(here)
+library(lubridate)
+library(heaven,lib="C:/Rpackages/heavenv2")
+
+link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+devtools::source_url(link_source)
+
+source(here::here("codi","global_TBC.R"))
+
+```
+
+# Lectura
+
+```{r}
+# 2. Paràmetres  ----------------------
+conductor_variables<-here::here("variables_tbc.xls")
+
+# 3. Lectura -------------
+if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
+if (params$metode=="estatica") dir_output<-"dades/output"
+if (params$metode=="PS") dir_output<-"dades/output_PS"
+
+load(here::here(dir_output,"output2.Rdata"))
+
+```
+
+# Preparació I
+
+```{r recodificacions }
+# Grup matching inicial 
+dt_ecap<-dt_ecap %>% mutate(grup=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+
+# Afegeixo en ECAP indicador de General de dades agencia
+dt_indicadora<-dt_agencia %>% transmute(CIP,dt_agencia=1) %>% group_by(CIP) %>% slice(1) %>% ungroup()
+dt_ecap<-dt_ecap %>% left_join(dt_indicadora,by="CIP") %>% mutate(dt_agencia=if_else(is.na(dt_agencia),0,1))
+
+
+# Truncament a 31/12/2016  -------
+# Generar variable antecedent TBC o Event de TBC (<data index) -------
+dt_ecap <-dt_ecap %>% 
+  mutate (DG.TBC=ifelse(DET_TB>ymd(dtindex) | is.na(DET_TB) ,NA,DET_TB),
+          EV.TBC=ifelse(DET_TB<=ymd(dtindex) | is.na(DET_TB),NA,DET_TB),
+          DG.TBC=as_date(DG.TBC),
+          EV.TBC=as_date(EV.TBC)) 
+
+# Validació
+dt_ecap %>% filter(!is.na(DET_TB))%>% select(dtindex,DET_TB,DG.TBC,EV.TBC)
+dt_ecap %>% valida_quanti("DET_TB","grup")
+dt_ecap %>% valida_quanti("DG.TBC","grup")
+dt_ecap %>% valida_quanti("EV.TBC","grup")
+
+
+```
+
+# Preparació II
+
+```{r}
+
+# Actualització situacio o data final de seguiment 31/12/2018 o mort --------------
+data_maxima<-20181231
+
+dt_ecap<-
+  dt_ecap %>% 
+  mutate(dsituacio=ifelse(dsituacio>ymd(data_maxima),ymd(data_maxima),dsituacio),
+         dsituacio=ifelse(situacio=="D",dsituacio,ymd(data_maxima)),
+         dsituacio=ifelse(is.na(dsituacio),ymd(data_maxima),dsituacio),
+         dsituacio=as_date(dsituacio),
+         situacio=ifelse(is.na(situacio),"A",situacio)) 
+
+# Si hi ha DG després del seguiment assigno la mateixa data de defunció a la data de DG
+dt_ecap %>% select(dsituacio,situacio,DG.DM, dtindex) %>% filter(situacio=="D" & dsituacio<=DG.DM)
+dt_ecap %>% valida_quanti("dsituacio","situacio")
+dt_ecap %>% filter(situacio=="D")%>% select(idp,situacio,dsituacio,EV.DM)
+dt_ecap %>% filter(situacio=="D" & EV.DM>dsituacio) %>% select(CIP,grup,dtindex,situacio,dsituacio,EV.DM,EV.TBC)
+
+
+# Errades en data de situació previa a data_DM
+# Si situacio=="D" &  EV.DM>dsituacio ---> situacio="A" i data situacio = data_maxima
+# dt_ecap<-dt_ecap %>% 
+#   mutate(situacio=ifelse(situacio=="D" & (EV.DM>dsituacio & !is.na(EV.DM)),"A",situacio))
+
+# Actualitzar data de situacio postmortem per data de DG
+# dt_ecap<-dt_ecap %>%
+#   mutate(dsituacio=ifelse(dsituacio>EV.DM | is.na(EV.DM),dsituacio,ymd(data_maxima)),
+#          dsituacio=as_date(dsituacio))
+
+dt_ecap %>% valida_quanti("dsituacio","situacio")
+
+# exitus i dataexitus
+dt_ecap<-dt_ecap %>% 
+  mutate(dtexitus=ifelse(situacio=="D",dsituacio,NA), 
+                   exitus=ifelse(situacio=="D",1,0))
+
+
+```
+
+# Preparació III
+
+```{r}
+# Generar data sortida / event principal TBC previ a data maxima / o data de DM en controls   -------
+
+# Si un CONTROL passa a DM s'acaba seguiment a data de DIABETIS en cohort estatica 
+
+if (!params$metode=="dinamica") { 
+  dt_ecap<-dt_ecap %>% 
+  mutate(datafi=ifelse(grup==0 & EV.DM>=ymd(dtindex),EV.DM,dtexitus),
+         datafi=ifelse(grup==0 & is.na(EV.DM),dtexitus,datafi),
+         datafi=ifelse(is.na(datafi),ymd(data_maxima),datafi),
+         datafi=as_date(datafi)) 
+  }
+
+# En cohort dinamica datafi es mort o data maxima 
+if (params$metode=="dinamica") {
+  dt_ecap<-dt_ecap %>% 
+  mutate(datafi=pmin(dtexitus,ymd(data_maxima),na.rm = T) %>% as_date()) }
+
+# Valida
+dt_ecap %>% valida_quanti("datafi","situacio")
+dt_ecap %>% select(datafi,situacio)
+
+
+```
+
+# Filtres
+
+```{r}
+
+#  filtre 1: mort inici de seguiment ----------------
+dt_ecap<-
+  dt_ecap %>% mutate(filtre_exitus=ifelse(situacio=="D" & dsituacio<=ymd(dtindex),1,0))
+
+# Temps de seguiment  ----------
+dt_ecap<-dt_ecap %>% mutate(temps_seguiment=datafi-ymd(dtindex))
+dt_ecap %>% valida_quanti("temps_seguiment","filtre_exitus")
+
+# Diagnostics/Events basals (Recode) (NA --> 0 (Else=1) (No hi ha 0))   ----------------
+dt_ecap<-dt_ecap %>% mutate_at(vars(starts_with("DG.")),funs('cat'=if_else(is.na(.) | 0,0,1))) 
+dt_ecap<-dt_ecap %>% mutate_at(vars(starts_with("EV.")),funs("cat"=if_else(is.na(.) | 0,0,1))) 
+
+#  filtre 2: TBC inici de seguiment ----------------
+dt_ecap<-
+  dt_ecap %>% mutate(filtre_TBC=ifelse(DG.TBC_cat==1,1,0))
+
+#
+table(dt_ecap$filtre_TBC)
+
+```
+
+# Calculo temps de seguiment  ----------
+
+```{r}
+dt_ecap<-dt_ecap %>% mutate(temps_seguiment=datafi-ymd(dtindex))
+dt_ecap %>% valida_quanti("temps_seguiment","filtre_exitus")
+
+# Temps lliure d'esdeveniment TBC i event_tbc -----------------------
+dt_ecap<-dt_ecap %>% 
+  mutate(dt_lliure_TBC=pmin(datafi,EV.TBC,na.rm = T),
+         temps_tbc=dt_lliure_TBC-ymd(dtindex),
+         event_tbc=ifelse(EV.TBC<=datafi,1,0),
+         event_tbc=ifelse(is.na(event_tbc) | event_tbc==0,0,1)) 
+
+# Surv
+dt_ecap$surv_tbc<-with(dt_ecap,Surv(temps_tbc, event_tbc))
+
+# Any de TBC diagnosticada  ------------------
+dt_ecap<-dt_ecap %>% mutate(any_TBC=year(EV.TBC))
+
+# Evolucion de la DM (dias/años)   --------------
+dt_ecap<-dt_ecap %>% mutate(DM_dias=ymd(dtindex)-DG.DM,
+                            DM_anys=interval(DG.DM,ymd(dtindex))/years(1)) 
+
+# Variable edat  -----------
+dt_ecap<-dt_ecap %>% mutate(age=(ymd(dtindex)-dNaixement)/365.25, age=as.numeric(age))
+
+
+# Data index numerica --------
+dt_ecap<-dt_ecap %>% mutate(anyindex=year(ymd(dtindex)))
+
+```
+
+# Generar matching (dt_ecap filtrats) 
+
+```{r}
+
+
+if (params$metode=="PS") {
+
+  dt_temp<-dt_ecap %>% filter(filtre_exitus==0 & filtre_TBC==0 & dt_agencia==1)
+  descrTable(grup~sexe+age,data=dt_temp)
+
+  dt_ecap_matchejades<-dt_temp %>% 
+  generar_matching(vars_matching=c("sexe","age","anyindex"),grup="DG.DM_cat",ratio=1, exact = "sexe")
+  # Ara afegir PS en dt_ecap
+  dt_ecap<-dt_ecap %>% left_join(select(dt_ecap_matchejades,CIP,PS),by="CIP")
+  
+  descrTable(grup~sexe+age+anyindex,data=dt_ecap_matchejades)
+  
+  } else dt_ecap<-dt_ecap %>% mutate(PS=1)
+  
+
+
+```
+
+# Dades agència
+
+```{r}
+# Arreglar dt_agencia ---------------
+# Filtro aquells que tenen NUM DE REGISTRE O DATA DE TBC en qualsevol moment o marcats com a DM o control en variable
+dt_agencia<-dt_agencia %>% filter(!is.na(NUM_REG) | !is.na(DET_TB))
+
+# Marco repetits 
+dt_agencia<-dt_agencia %>% group_by(CIP) %>% dplyr::mutate(repe=n()) %>% ungroup() %>% mutate(repe=ifelse(repe>1,1,0))
+
+
+# Afegeixo edat + sexe de dt_ecap ------------------
+dt_temp<-dt_ecap %>% select(CIP,sexe,dNaixement,PS,grup,event_tbc,DG.TBC_cat) %>% group_by(CIP) %>% slice(1)
+
+dt_agencia<-dt_agencia %>% left_join(dt_temp,by="CIP") %>% select(-EDAT,-GENERE)
+
+
+
+```
+
+# Salvo elements
+
+```{r}
+
+# Crear directoris output si no existeix
+dir.create(here::here("dades/output"))
+dir.create(here::here("dades/output_dinamic"))
+dir.create(here::here("dades/output_PS"))
+
+
+save(dt_ecap,dt_agencia, file=here::here(dir_output,"output3.Rdata"))
+
+```
+
+
+
+
+
+
+
+
