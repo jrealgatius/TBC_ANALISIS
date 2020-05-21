@@ -6,10 +6,24 @@
 .RData
 .html
 
-/dades
+.Rdata
+
+/resultats
 /codi/temp
 /temp
 
+dades/*.xls
+dades/*.RDS
+dades/*.xlsx
+dades/*.7z
+dades/*.Rds
+dades/*.zip
+dades/*.csv
+dades/*.accdb
+
+# Directoris
+dades/antic
+dades/bdades_tbc
 
 # Example code in package build process
 *-Ex.R

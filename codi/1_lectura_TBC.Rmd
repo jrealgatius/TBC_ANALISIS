@@ -4,7 +4,7 @@ params:
   llistaPS:
   - sexe
   - any_naix
-  metode: "estatica" # "dinamica" / "estatica" / "PS"
+  metode: estatica
   num_controls: 1
 ---
 
@@ -22,7 +22,7 @@ gc()
 library(dplyr)
 library(here)
 library(lubridate)
-library(heaven,lib="C:/Rpackages/heavenv2")
+# library(heaven,lib="C:/Rpackages/heavenv2")
 
 link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
 devtools::source_url(link_source)
@@ -144,22 +144,30 @@ dt_dades<-dt_dades %>% mutate(DATA_NAIX=as.Date(DATA_NAIX, origin = "1899-12-30"
                     INICITRACT=as.Date(INICITRACT,origin = "1899-12-30"),
                     DAT_NOTIF=as.Date(DAT_NOTIF,origin = "1899-12-30"))
 
+# Recalculo data naixament basat en CIP en aquells anteriors a 1910 o superiors a 2019
+dt_dades<- dt_dades %>% 
+  mutate(DATA_NAIX=ifelse(year(DATA_NAIX)<1910 |  year(DATA_NAIX)>2019 ,paste0("19",substr(CIP,6,7),substr(CIP,8,9),substr(CIP,10,11)) %>% ymd(),DATA_NAIX))%>%
+  mutate(DATA_NAIX=as_date(DATA_NAIX))
+  
 # Actualitzar DATA TBC (DET_TBC amb INITRACT o DAT_NOTIF (MÍNIMA ENTRE LES DUES) I Si no n'hi ha cap DET_TBC)
+# Només criteri data agencia. (Resta no val)
 dt_dades<-dt_dades %>% mutate(DET_TB_ECAP=DET_TB,
-                              DET_TB=pmin(INICITRACT,DAT_NOTIF,na.rm = T),
-                              DET_TB=if_else(is.na(DET_TB),DET_TB_ECAP,DET_TB))
+                              DET_TB=pmin(INICITRACT,DAT_NOTIF,na.rm = T))
+
 
 # Actualitzar dt_demografiques  amb dades generals de l'agencia (sobretot els 1643 que no teniem en E-cap)
 # Formatejo dades de dt_dades
 dades_temp<- dt_dades %>% transmute(CIP,
                        sexe=if_else(str_sub(CIP,5,5)=="1","D","H"),
-                       dNaixement=paste0("19",str_sub(CIP,6,7),str_sub(CIP,8,9),str_sub(CIP,10,11)) %>% lubridate::ymd(),
+                       dNaixement=DATA_NAIX,
                        situacio=MORT,
                        dsituacio=lubridate::as_date(DAT_MORT),
                        Mostra,
                        ABS,
                        descUP=BARRI,
                        INCL_CVELLA)
+
+
 
 # selecciono només aquells CIPS que no estan a dades demografiques (n=1643)
 dades_temp<-dades_temp %>% anti_join(dt_demografiques,by="CIP") 
@@ -194,6 +202,16 @@ dt_demografiques<- dt_demografiques %>%
          situacio=ifelse(is.na(situacio),"A",situacio)) 
 
 dt_demografiques %>% valida_quanti("dsituacio","situacio")
+
+# Arreglo igualment dNaixament
+dt_demografiques %>% valida_quanti("dNaixement")
+# Recalculo data naixament basat en CIP en aquells anteriors a 1910
+dt_demografiques<- dt_demografiques %>% 
+  mutate(dNaixement=
+           ifelse(year(dNaixement)<1910 | year(dNaixement)>2019 ,ymd(paste0("19",substr(CIP,6,7),substr(CIP,8,9),substr(CIP,10,11))),dNaixement))%>% 
+  mutate(dNaixement=as_date(dNaixement)) 
+
+dt_demografiques %>% valida_quanti("dNaixement")
 
 # Neteja 
 rm(dt_cips_antic)
@@ -251,6 +269,19 @@ dt_visites<-dt_visites %>%
   transmute(CIP=cip,any,servei=as.character(servei),tipus.visita =as.character(tipus.visita),N)
 dt_visites %>% valida_quanti("any")
 
+
+# Generar data minima d'antidiabetic per considerar-la potencial data index
+farmacs_antidiabetis<-CATALEG %>% select(cod,grup,subgrup) %>% 
+  filter(grup=="INSU" | grup=="ADO") %>% 
+  filter(is.na(subgrup) | subgrup!="ADO_MET")
+
+dt_antidiabetics<-
+  dt_farmacia %>% semi_join(farmacs_antidiabetis,by="cod") %>% 
+  group_by(CIP) %>% arrange(dataini) %>% slice(1) %>% ungroup() %>% 
+  transmute(CIP,data1r_Antidiabetic=dataini) 
+  
+dt_antidiabetics %>% valida_quanti("data1r_Antidiabetic")
+
 ```
 
 # Generar data índex
@@ -263,9 +294,21 @@ dt_visites %>% valida_quanti("any")
 data_fi_reclutament<-"20161231"
 
 # 5.2. Generar data_index segons primer DM detectat en problemes de salut durant reclutament  --------
+# O primer antidiabetic receptat
 dt_dtindexDM<-
   dt_psalut %>% filter (dat<=ymd(data_fi_reclutament)) %>%  #Fi de reclumantet 
   semi_join(CATALEG %>% select(cod,DM) %>% filter(DM=="DM"),by="cod") %>% 
+  group_by(idp) %>% 
+  dplyr::slice(which.min(dat)) %>% # selecciono CIP amb data mínima
+  ungroup() 
+
+# Afegir informació d'Antidiabetics
+dt_antidiabetics<-dt_antidiabetics %>% filter (data1r_Antidiabetic<=ymd(data_fi_reclutament))
+
+dt_dtindexDM<-
+  dt_antidiabetics %>% 
+  transmute(CIP,dat=data1r_Antidiabetic,idp=CIP) %>% filter (dat<=ymd(data_fi_reclutament)) %>%
+  bind_rows(dt_dtindexDM) %>% 
   group_by(idp) %>% 
   dplyr::slice(which.min(dat)) %>% # selecciono CIP amb data mínima
   ungroup() 
@@ -275,6 +318,7 @@ dt_dtindexDM<-
 data_index_agregacio<-dt_dtindexDM %>% 
   select(idp,data=dat) %>% mutate(data=data.to.string(data)) %>% 
   mutate(data=if_else(data<"20070101","20070101",data),grup=1)
+
 data_index_agregacio %>% valida_quanti("data")
 
 # # Elimino aquells que tenen un antecedent de TBC previ a l'exposició (DM) 
@@ -375,7 +419,6 @@ if (!params$metode=="dinamica") {
 # 5.4. Agregacions
 
 ```{r agregacions}
-
 dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
                       finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="grup")
 
@@ -387,8 +430,20 @@ dt_antecedents.agregada2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agre
 dt_antecedents.agregada3<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
                                           finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="DM")
 
+## Actualitzar Diagnostic de DM també en funció dels farmacs antidiabètics
+dt_temp4<-
+  dt_antidiabetics %>% transmute(idp=CIP,DG.DM=data1r_Antidiabetic) %>% 
+  semi_join(data_index_agregacio) %>% left_join(data_index_agregacio) %>% 
+  transmute(idp,dtindex=data,DG.DM) %>% 
+  filter(DG.DM<=lubridate::ymd(dtindex))
+
+dt_antecedents.agregada3<-
+  dt_antecedents.agregada3 %>% 
+  bind_rows(dt_temp4) %>% group_by(idp) %>% arrange(DG.DM) %>% slice(1) %>% ungroup()
+
+
 # Juntar totes les agregades
-dt_antecedents.agregada<-dt_antecedents.agregada %>% left_join(dt_antecedents.agregada2) %>% left_join(dt_antecedents.agregada3) 
+dt_antecedents.agregada<-dt_antecedents.agregada %>% full_join(dt_antecedents.agregada2) %>% full_join(dt_antecedents.agregada3) 
 rm(dt_antecedents.agregada2,dt_antecedents.agregada3)
 
 # Events --------------
@@ -399,11 +454,23 @@ dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,
 temp<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
                                       finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="DM") 
 
+## Actualitzar Event DM també en funció dels farmacs antidiabètics
+dt_temp4<-
+  dt_antidiabetics %>% transmute(idp=CIP,EV.DM=data1r_Antidiabetic) %>% 
+  semi_join(data_index_agregacio) %>% left_join(data_index_agregacio) %>% 
+  transmute(idp,dtindex=data,EV.DM) %>% 
+  filter(EV.DM>lubridate::ymd(dtindex))
+
+temp<-temp %>% 
+  bind_rows(dt_temp4) %>% group_by(idp) %>% arrange(EV.DM) %>% slice(1) %>% ungroup()
+
+
 # Events 3 nivell 
 temp2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
                          finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="subgrup") 
 
-dt_events.agregada<-dt_events.agregada %>% left_join(temp) %>% left_join(temp2)
+
+dt_events.agregada<-dt_events.agregada %>% full_join(temp) %>% full_join(temp2)
 rm(temp,temp2)
 
 # 5.2. Agregar variables basals 
@@ -423,14 +490,14 @@ dt_vac.agregada<-
 dt_farmacia<-dt_farmacia %>% mutate(idp=CIP,dat=data.to.string(dataini),dbaixa=data.to.string(datafi)) 
   
 dt_farmacs_agregada<-
-  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="grup",agregar_data=F) %>% 
+  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(0,0),camp_agregador="grup",agregar_data=F) %>% 
   mutate(dtindex=data.to.string(dtindex))
 
 temp<-
-  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(-45,+45),camp_agregador="subgrup",agregar_data=F) %>% 
+  agregar_prescripcions(dt=dt_farmacia,bd.dindex=data_index_agregacio,dt.agregadors=CATALEG,prefix="FP.",finestra.dies=c(0,0),camp_agregador="subgrup",agregar_data=F) %>% 
   mutate(dtindex=data.to.string(dtindex))
 
-dt_farmacs_agregada<-dt_farmacs_agregada %>% left_join(temp)
+dt_farmacs_agregada<-dt_farmacs_agregada %>% full_join(temp)
 rm(temp)
 
 # 5.6 Visites   ----------------
@@ -442,10 +509,10 @@ dt_visites.agregada <-
 
 ```
 
-
 # 6. Fusionar taules en una sola
 
 ```{r}
+
 
 dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>% 
   left_join(dt_antecedents.agregada,by=c("idp","dtindex")) %>% 
@@ -453,7 +520,9 @@ dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>%
   left_join(dt_variables.agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_vac.agregada,by=c("idp","dtindex")) %>%
   left_join(dt_visites.agregada,by=c("idp","dtindex")) %>% 
-  left_join(dt_farmacs_agregada,by=c("idp","dtindex")) 
+  left_join(dt_farmacs_agregada,by=c("idp","dtindex")) %>% 
+  left_join(dt_antidiabetics,by="CIP")
+
 
 ```
 

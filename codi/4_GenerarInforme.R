@@ -27,9 +27,13 @@ Generar_informe=function(metode="dinamica") {
   }
 
 
-metode="estatica"
+metode="PS"
 
 rmarkdown::render("./codi/1_lectura_TBC.Rmd",params = list(metode=metode))
+
 rmarkdown::render("./codi/2_preparacio_TBC.Rmd",params = list(metode=metode))
+
 Generar_informe(metode)
+
+
 

@@ -17,7 +17,7 @@ gc()
 library(dplyr)
 library(here)
 library(lubridate)
-library(heaven,lib="C:/Rpackages/heavenv2")
+# library(heaven,lib="C:/Rpackages/heavenv2")
 
 link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
 devtools::source_url(link_source)
@@ -45,7 +45,12 @@ load(here::here(dir_output,"output2.Rdata"))
 
 ```{r recodificacions }
 # Grup matching inicial 
+
 dt_ecap<-dt_ecap %>% mutate(grup=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+
+# VERIFICAR FARMACS ANTIDIABETICS 
+dt_ecap %>% filter(grup==0 & !is.na(FP.INSU)) %>% select(CIP,grup, FP.INSU,DG.DM,dtindex,data1r_Antidiabetic)
+
 
 # Afegeixo en ECAP indicador de General de dades agencia
 dt_indicadora<-dt_agencia %>% transmute(CIP,dt_agencia=1) %>% group_by(CIP) %>% slice(1) %>% ungroup()
@@ -192,6 +197,9 @@ dt_ecap<-dt_ecap %>% mutate(age=(ymd(dtindex)-dNaixement)/365.25, age=as.numeric
 
 # Data index numerica --------
 dt_ecap<-dt_ecap %>% mutate(anyindex=year(ymd(dtindex)))
+
+
+
 
 ```
 
