@@ -14,7 +14,7 @@ output:
   word_document: default
   
 params:
-  metode: "PS"  # "dinamica" / "estatica" / "PS"
+  metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
@@ -57,13 +57,24 @@ subtitle: "`r params$subtitul`"
 
 
 ## Actualizaciones 
+
+>08/06/2020
+
+&check; Reprogramació cohort dinàmica (Controls sense reemplaçament / Casos Reutilitzats) <br/>
+&check; Categorització de paisos <br/>
+&check; Actualització de resultats <br/>
+
+## Hecho: 
+
+>15/05/2020
+
 &check; Depuració: Reclassificació de controls a diabetics segons històric de fàrmacs antidiabètics i data d'inclusió (Mínima)<br/>
 &check; Depuració: Recalcul d'edat només basat en CIP <br/>
 &check; Depuració: Reconsiderar esdeveniment TBC només aquells amb informació a BD ASPB <br/>
 &check; Depuració: Detectat i eliminats subjectes per edat (Nascuts post inclusió) <br/>
 
+>
 
-## Hecho: 
 &check; Incluir subjectes amb antecedents TBC <br/>
 &check; Agrupació de paisos per árees <br/> 
 &check; Anàlisis de sensibilitat amb esdeveniments ASPB <br/>
@@ -71,6 +82,8 @@ subtitle: "`r params$subtitul`"
 &check; Descriptiu d'esdeveniments de TBC <br/>
 &check; Descriptiu de dades ASPB <br/>
 &check; Reanàlisis complet <br/>
+
+>
 
 &check; Actualitzat event TBC amb data de tractament / data notificació (primera entre amdues)  / o DET_TB segons E-CAP en cas contrari <br/>
 &check; Consideració de qualsevol DM (I o II) <br/>
@@ -110,7 +123,7 @@ subtitle: "`r params$subtitul`"
 - Base de datos vacunas solo disponible a partir de 12/2007 (No en basal)
 - Reclasificados expuestos diabeticos en fecha de inclusión (1/2007)
 - Possible infraregistro de diagnosticos en 2007
-- Alto número de valores faltantes
+- Alto número de valores faltantes en covariables
 
 
 
@@ -129,6 +142,7 @@ devtools::source_url(link_source)
 conductor_variables<-here::here("variables_tbc.xls")
 conductor_agencia<-here::here("conductor_agencia.xls")
 
+if (params$metode=="dinamica2") dir_output<-"dades/output_dinamic2"
 if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
@@ -247,7 +261,7 @@ dades$surv_tbc_agencia<-with(dades,Surv(temps_tbc, event_tbc_agencia))
 
 ### Método de seleccion de controles cohorte dinámica:
 
-A case is a person who initiates treatment at index date. A control is a person who has not yet initiated treatment at the index date of the case. The index date of the case can also be the onset of a disease (or other exposure), in which case controls are persons who do not yet have the disease (are not yet exposed). See incidenceMatch for situations where a case has a time to event outcome at the index date and controls do not have the outcome at the case index date.
+A case is a person who is recorded as diabetes at index date. A control is a person who has not yet have diabetes at the index date of the case. The index date of the case can also be the onset of a disease (or other exposure), in which case controls are persons who do not yet have the disease (are not yet exposed). See incidenceMatch for situations where a case has a time to event outcome at the index date and controls do not have the outcome at the case index date.
 
 Within a cohort or registry study, a number of controls are matched to each case on demographics, comorbidity, concomitant medication and other pre-treatment person characteristics measured at the index date of the case.
 
@@ -354,7 +368,7 @@ descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(ca
 
 ```{r resultats7, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
-if (params$metode=="dinamica") cluster="case.id" else cluster=""
+if (params$metode=="dinamica2") cluster="case.id" else cluster=""
 
 HR.COX(x="DM_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
   kable(digits = 3,caption = "HR cru") %>% kableExtra::kable_styling()

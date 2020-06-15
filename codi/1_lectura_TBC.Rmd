@@ -4,8 +4,9 @@ params:
   llistaPS:
   - sexe
   - any_naix
-  metode: estatica
+  metode: "dinamica2" #estatica / PS / dinamica2 
   num_controls: 1
+  cas_com_controls: TRUE
 ---
 
 # FASE LECTURA  
@@ -40,6 +41,8 @@ fitxer_conductor_variables<-here::here("variables_tbc.xls")
 fitxer_conductor_general<-here::here("variables_general.xls")
 
 
+
+
 ```
 
 ## 3. Lectura fitxers
@@ -53,7 +56,7 @@ fitxer_conductor_general<-here::here("variables_general.xls")
 > Actualització d'un fitxer: "extracció tbc dm metode antic-1.csv"
 
 
-```{r lectura, warning=F}
+```{r lectura, warning=F, cache=TRUE}
 CATALEG<-readxl::read_excel(fitxer_conductor_cataleg,col_types = "text")
 #     Problemes de salut ----------
 dt_psalut3<-read.csv2(here::here("dades","PSalut3.csv"), header=T, sep=";",fileEncoding="utf-16") %>% as_tibble()
@@ -101,7 +104,7 @@ dt_demografiques<-dt_demografiques %>% rename (CIP=cipACT) %>%
 # Agrego per CIP I agafo la última situació 
 dt_demografiques<-dt_demografiques %>% 
   transmute(CIP,sexe,situacio,dNaixement=lubridate::ymd(dNaixement),ABS,dsituacio=lubridate::ymd(dsituacio)) %>% 
-  group_by(CIP) %>% dplyr::slice(which.max(dsituacio))
+  group_by(CIP) %>% dplyr::slice(which.max(dsituacio)) %>% ungroup()
 
 # Fusiono ambdues bases de dades (dt_demografiques_antic + dt_demografiques)
 dt_demografiques<-dt_demografiques %>% bind_rows(dt_demografiques_antic)
@@ -134,7 +137,7 @@ dt_cips_antic %>% anti_join(dt_cips, by="CIP")
 
 # Formatar dades (I)
 
-```{r Formatar1}
+```{r Formatar1, cache=TRUE}
 # Formatar dates
 dt_dades<-dt_dades %>% mutate(DATA_NAIX=as.Date(DATA_NAIX, origin = "1899-12-30"),
                     DAT_INCL=as.Date(DAT_INCL, origin = "1899-12-30"),
@@ -222,7 +225,7 @@ rm(dt_cips_antic)
 > Filtro per CIPS existents en ecap (dt_demografiques)
 > Filtro historics DG a data fi de reclutament 31/12/2016 (¿?)
 
-```{r Formatar2}
+```{r Formatar2, cache=TRUE}
 data_fi_reclutament<-"20161231"
 
 #4.1 DT_PSALUT
@@ -293,8 +296,8 @@ dt_antidiabetics %>% valida_quanti("data1r_Antidiabetic")
 ```{r Generar_dtindex}
 data_fi_reclutament<-"20161231"
 
-# 5.2. Generar data_index segons primer DM detectat en problemes de salut durant reclutament  --------
-# O primer antidiabetic receptat
+# 5.2. Generar data_index de DMs segons primer DM detectat en problemes de salut durant reclutament  --------
+# O primer antidiabetic prescrit
 dt_dtindexDM<-
   dt_psalut %>% filter (dat<=ymd(data_fi_reclutament)) %>%  #Fi de reclumantet 
   semi_join(CATALEG %>% select(cod,DM) %>% filter(DM=="DM"),by="cod") %>% 
@@ -307,7 +310,7 @@ dt_antidiabetics<-dt_antidiabetics %>% filter (data1r_Antidiabetic<=ymd(data_fi_
 
 dt_dtindexDM<-
   dt_antidiabetics %>% 
-  transmute(CIP,dat=data1r_Antidiabetic,idp=CIP) %>% filter (dat<=ymd(data_fi_reclutament)) %>%
+  transmute(CIP,dat=data1r_Antidiabetic,idp=CIP) %>%
   bind_rows(dt_dtindexDM) %>% 
   group_by(idp) %>% 
   dplyr::slice(which.min(dat)) %>% # selecciono CIP amb data mínima
@@ -334,7 +337,6 @@ data_index_agregacio %>% valida_quanti("data")
 > Ojo que dtdades agencia (n'Hi ha repetits)
 
 ```{r Generar_dtindex2 }
-
 if (params$metode=="dinamica") {
   
   # Variable indicadora de dt_general (agencia)
@@ -405,10 +407,142 @@ if (params$metode=="dinamica") {
     transmute(case.id,CIP=idp,data=as_date(dtindex_case) %>% data.to.string(),grup=grup) %>% 
     left_join(dt_demografiques,by="CIP")
   }
+```
 
+
+
+
+# Generar data índex (Cohort dinamica sense reemplaçament)
+
+> Mètode heaven 2018
+
+
+```{r Generar_dtindex3}
+
+if (params$metode=="dinamica2") {
+  
+  # Variable indicadora de dt_general (agencia)
+  dt_agencia<-dt_dades %>% transmute(CIP,dt_general=1) %>% group_by(CIP) %>% slice(1) %>% ungroup()
+  
+  # Afegeixo en dt_demografiques (ECAP) indicador de General de dades agencia
+  dt_demografiques<-dt_demografiques %>% 
+    left_join(dt_agencia,by="CIP") %>% 
+    mutate(dt_general=if_else(is.na(dt_general),0,1))
+  
+  # Data sortida en potencials controls -> minima entre data d'exitus / data TBC / data maxima (20161231) 
+  data_maxima<-"20161231"
+
+  # Junto en dades ecap data index pels exposats
+  KK<- dt_demografiques %>% 
+    left_join(data_index_agregacio,by=c("CIP"="idp")) %>% 
+    transmute(idp=CIP,grup,data,situacio,data0="20070101",dsituacio,
+              DET_TB,DET2_TB=as_date(DET2_TB),data_sortida=data_maxima,sexe,dNaixement, dt_general) 
+  
+  # Actualitzar datasortida a data exitus o data TBC(1r o 2n) post data index o datamaxima
+  KK<-KK %>% mutate(data_sortida=ifelse(situacio=="D",data.to.string(dsituacio),data_sortida))  # Data mort
+
+  KK<-KK %>% 
+    mutate(EV_TB=ifelse(!is.na(DET_TB) & DET_TB>ymd(data),DET_TB,NA),EV_TB=as_date(EV_TB)) %>% # Exposats post DM 
+    mutate(EV_TB=ifelse(is.na(data) & DET_TB>ymd(20070101),DET_TB,EV_TB),EV_TB=as_date(EV_TB)) %>% # Controls post 01/2007
+    mutate(data0=ifelse(!is.na(data),data,"20070101")) %>% 
+    mutate(data_sortida=pmin(ymd(EV_TB),ymd(data_sortida),na.rm=T)) # Data sortida mínima entre Event i data sortida
+  
+  # Grup exposat / grup control 
+  KK<-KK %>% mutate(grup=if_else(is.na(grup),0,1))  # Grup control
+
+  # Preparar per matchejar i generar grups a risk 
+  KK<-KK %>% 
+    mutate(dtindex_case=ymd(data) %>% as.numeric(), dtindex_control=ifelse(grup==0,data_sortida,NA)) %>% 
+    mutate(any_naix=year(dNaixement)) %>% 
+    unique() %>% # Eliminar repetits
+    group_by(idp) %>% arrange(DET_TB) %>% dplyr::slice(1L) %>% ungroup() %>% 
+    mutate (data_sortida_real=ifelse(grup==1,dtindex_case,data_sortida)) # Si es un DM data_sortida es data cas
+
+  # Eliminar subjectes nascuts despres del 2015
+  KK<-KK %>% filter(!(any_naix>2015))
+  # Recodificar any_naix mínim 100 individus per grup 
+  KK<-KK %>% mutate(any_naix=cut2(any_naix,m=200)) 
+
+  # MaCHEJAR SEGONS  
+  # llistaPS<-c("sexe","any_naix")
+  # num_controls<-1
+  llistaPS<-params$llistaPS
+  num_controls<-params$num_controls
+  
+  # Filtrar només dades generals
+  KK<-KK %>% filter(dt_general==1)
+
+  # params$cas_com_controls
+  table(KK$grup)
+  
+  # aquí he de canviar una petita estructura del programa: 
+  # Fer DINAMIC2[Casos possibles  controls,   # i els controls agafats , sense remplaçament!]
+  KK_match2<-heaven::riskSetMatch (
+                              ptid="idp" 
+                             ,event="grup"                # 0=Control, 1=case
+                             ,terms=llistaPS              # terms c("n1","n2",...)
+                             ,dat= KK                     # dataset with all variables
+                             ,Ncontrols=num_controls      # number of controls to provide
+                             ,oldevent="oldevent"         # To distinguish cases used as controls
+                             ,caseid="caseid"             # variable to group cases and controls (case-ptid)
+                             ,reuseCases=params$cas_com_controls    # F/ T 
+                             ,reuseControls=F
+                             ,caseIndex="dtindex_case"    # Integer or date, date where controls must be prior
+                             ,controlIndex="data_sortida_real" # controlIndex - Index date for controls
+                             ,NoIndex=FALSE               # If T ignore index
+                             ,cores=1                   # Number of cores to use, default 1
+                                  ) 
+
+
+  # Número de controls per conjunt a risk  ------------
+  KK_match2<-KK_match2 %>% group_by(caseid) %>% mutate(numControls=n()) %>% ungroup()
+  KK_match2<- KK_match2 %>% mutate(numControls=numControls-1)
+
+  # Elimino grups sense controls
+  KK_match2<-KK_match2 %>% filter(numControls>0)
+  
+  # Comprovació de matching 
+  descrTable(grup~sexe+dNaixement ,
+                method =1,
+                Q1 = 0, Q3 = 1,
+                data= KK_match2,
+                max.xlev = 100, 
+                show.p.overall=FALSE,
+                show.n = T,
+                hide.no="No",simplify=F)
+
+  data_index_agregacio<-KK_match2%>% 
+    transmute(idp,data=as_date(dtindex_case) %>% data.to.string())
+ 
+  # Elimino repetits en demografiques 
+  dt_demografiques<-dt_demografiques %>% unique()
+  
+  # Junto dt_demografiques nomes matxejades
+  dt_demografiques<-KK_match2 %>% 
+    transmute(case.id=caseid,CIP=idp,any_naix,data=as_date(dtindex_case) %>% data.to.string(),grup=grup) %>% 
+    left_join(dt_demografiques,by="CIP")
+  
+  }
+
+# Verificar grup / diagnostic de DM 
+
+# dt_pasalutDM<- 
+#   dt_psalut %>% filter (dat<=ymd(data_fi_reclutament)) %>%  #Fi de reclumantet 
+#   semi_join(CATALEG %>% select(cod,DM) %>% filter(DM=="DM"),by="cod") %>% 
+#   group_by(idp) %>% 
+#   dplyr::slice(which.min(dat)) %>% # selecciono CIP amb data mínima
+#   ungroup() %>% transmute(CIP,datDG_DM=dat)
+# 
+# pp<-dt_demografiques %>% left_join(dt_pasalutDM,by="CIP") %>% select(case.id,grup,data,datDG_DM) %>% 
+#   mutate(grup2=ifelse(datDG_DM<=ymd(data) & !is.na(datDG_DM),1,0))
+
+```
+
+
+```{r cohort_estatica }
 # Si es estatica data_index_agregació es 20070101 dels 84988 d'Ecap de moment
 
-if (!params$metode=="dinamica") {
+if (params$metode=="PS" | params$metode=="estatica") {
   
   dt_demografiques<-dt_demografiques %>% mutate(data="20070101")
   data_index_agregacio<-dt_demografiques %>% select(idp=CIP,data)
@@ -524,6 +658,12 @@ dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>%
   left_join(dt_antidiabetics,by="CIP")
 
 
+
+# Ojo que avegades no quadra amb dtindex de setgruprisk 
+# dt_temp<-dt_total %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+# table(dt_temp$grup2)
+
+
 ```
 
 # Últims coletazos / salvar plana
@@ -541,11 +681,16 @@ dt_dades<-dt_dades %>% netejar_espais()
 dt_ecap<-dt_total
 dt_agencia<-dt_dades
 
+# Ojo de vegades no quadra amb dtindex de setgruprisk 
+# dt_temp<-dt_ecap %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+# table(dt_temp$grup2)
 
 # Crear directori output si no existeix
 if (!dir.exists("dades/output")) {dir.create("dades/output")}
 if (!dir.exists(here::here("dades/output_dinamic"))) {dir.create(here::here("dades/output_dinamic"))}
+if (!dir.exists(here::here("dades/output_dinamic2"))) {dir.create(here::here("dades/output_dinamic2"))}
 
+if (params$metode=="dinamica2") dir_output<-"dades/output_dinamic2"
 if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"

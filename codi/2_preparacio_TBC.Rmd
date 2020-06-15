@@ -1,6 +1,6 @@
 ---
 params:
-  metode: "estatica" # "dinamica" / "estatica" / "PS"
+  metode: dinamica2
 ---
 
 
@@ -33,11 +33,13 @@ source(here::here("codi","global_TBC.R"))
 conductor_variables<-here::here("variables_tbc.xls")
 
 # 3. Lectura -------------
+if (params$metode=="dinamica2") dir_output<-"dades/output_dinamic2"
 if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
 
 load(here::here(dir_output,"output2.Rdata"))
+
 
 ```
 
@@ -46,10 +48,16 @@ load(here::here(dir_output,"output2.Rdata"))
 ```{r recodificacions }
 # Grup matching inicial 
 
+table(dt_ecap$grup)
+temp<-dt_ecap %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+table(temp$grup2)
+
+# Ojo no quadra amb dtindex de setgruprisk 
 dt_ecap<-dt_ecap %>% mutate(grup=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
 
+
 # VERIFICAR FARMACS ANTIDIABETICS 
-dt_ecap %>% filter(grup==0 & !is.na(FP.INSU)) %>% select(CIP,grup, FP.INSU,DG.DM,dtindex,data1r_Antidiabetic)
+dt_ecap %>% filter(grup==0 & !is.na(FP.INSU)) %>% select(CIP,grup,DET_TB, FP.INSU,DG.DM,dtindex,data1r_Antidiabetic)
 
 
 # Afegeixo en ECAP indicador de General de dades agencia
@@ -123,7 +131,7 @@ dt_ecap<-dt_ecap %>%
 
 # Si un CONTROL passa a DM s'acaba seguiment a data de DIABETIS en cohort estatica 
 
-if (!params$metode=="dinamica") { 
+if (!params$metode=="dinamica2") { 
   dt_ecap<-dt_ecap %>% 
   mutate(datafi=ifelse(grup==0 & EV.DM>=ymd(dtindex),EV.DM,dtexitus),
          datafi=ifelse(grup==0 & is.na(EV.DM),dtexitus,datafi),
@@ -132,7 +140,7 @@ if (!params$metode=="dinamica") {
   }
 
 # En cohort dinamica datafi es mort o data maxima 
-if (params$metode=="dinamica") {
+if (params$metode=="dinamica2") {
   dt_ecap<-dt_ecap %>% 
   mutate(datafi=pmin(dtexitus,ymd(data_maxima),na.rm = T) %>% as_date()) }
 
@@ -253,6 +261,7 @@ dt_agencia<-dt_agencia %>% left_join(dt_temp,by="CIP") %>% select(-EDAT,-GENERE)
 # Crear directoris output si no existeix
 dir.create(here::here("dades/output"))
 dir.create(here::here("dades/output_dinamic"))
+dir.create(here::here("dades/output_dinamic2"))
 dir.create(here::here("dades/output_PS"))
 
 
