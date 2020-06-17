@@ -393,6 +393,30 @@ survfit(surv_tbc ~ grup, data=dades) %>%
 ```
 
 
+## Gràfica estimada del Model de cox
+
+```{r figura_COX, include=T, fig.asp=1, results="asis"}
+
+if (params$metode=="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age+cluster(case.id), data=dades) 
+if (params$metode!="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age, data=dades) 
+
+res.cox %>% sjPlot::tab_model(show.p = FALSE)
+
+summary(res.cox)
+
+ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" , fun="cumhaz",
+                 title="Fitted Cox Model to TB detection in patient with or without DM")
+
+
+ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup", fun="event",
+                 title="Fitted Cox Model to TB detection in patient with or without DM")
+
+
+
+
+```
+
+
 ## Objetivos secundarios
 
 - 3.	Grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
