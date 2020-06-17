@@ -380,6 +380,17 @@ HR.COX(x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = 
   kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
 
 
+
+```
+
+## Incidència TBC per pais
+
+```{r,message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+kable(resum_events_grup(dades,
+                  evento="event_tbc",
+                  temps="anys_lliure_tbc",
+                  grup="descNacionalitat"),
+      caption="Resum Incidència per País") %>% kableExtra::kable_styling()
 ```
 
 
