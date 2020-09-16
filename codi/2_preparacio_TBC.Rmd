@@ -48,17 +48,15 @@ load(here::here(dir_output,"output2.Rdata"))
 ```{r recodificacions }
 # Grup matching inicial 
 
-table(dt_ecap$grup)
-temp<-dt_ecap %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
-table(temp$grup2)
+# table(dt_ecap$grup)
+# temp<-dt_ecap %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+# table(temp$grup2)
 
-# Ojo no quadra amb dtindex de setgruprisk 
+# Ojo hi ha desquadre de dtindex de setgruprisk
 dt_ecap<-dt_ecap %>% mutate(grup=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
-
 
 # VERIFICAR FARMACS ANTIDIABETICS 
 dt_ecap %>% filter(grup==0 & !is.na(FP.INSU)) %>% select(CIP,grup,DET_TB, FP.INSU,DG.DM,dtindex,data1r_Antidiabetic)
-
 
 # Afegeixo en ECAP indicador de General de dades agencia
 dt_indicadora<-dt_agencia %>% transmute(CIP,dt_agencia=1) %>% group_by(CIP) %>% slice(1) %>% ungroup()
@@ -79,6 +77,8 @@ dt_ecap %>% valida_quanti("DET_TB","grup")
 dt_ecap %>% valida_quanti("DG.TBC","grup")
 dt_ecap %>% valida_quanti("EV.TBC","grup")
 
+dt_ecap %>% filter(DG.TBC>0 | EV.TBC>0) %>% select(dtindex,DG.TBC,EV.TBC)
+
 
 ```
 
@@ -98,11 +98,10 @@ dt_ecap<-
          situacio=ifelse(is.na(situacio),"A",situacio)) 
 
 # Si hi ha DG després del seguiment assigno la mateixa data de defunció a la data de DG
-dt_ecap %>% select(dsituacio,situacio,DG.DM, dtindex) %>% filter(situacio=="D" & dsituacio<=DG.DM)
+dt_ecap %>% select(dsituacio,situacio,DG.DM, dtindex,DET_TB) %>% filter(situacio=="D" & dsituacio<=DG.DM)
 dt_ecap %>% valida_quanti("dsituacio","situacio")
 dt_ecap %>% filter(situacio=="D")%>% select(idp,situacio,dsituacio,EV.DM)
 dt_ecap %>% filter(situacio=="D" & EV.DM>dsituacio) %>% select(CIP,grup,dtindex,situacio,dsituacio,EV.DM,EV.TBC)
-
 
 # Errades en data de situació previa a data_DM
 # Si situacio=="D" &  EV.DM>dsituacio ---> situacio="A" i data situacio = data_maxima
@@ -121,7 +120,6 @@ dt_ecap<-dt_ecap %>%
   mutate(dtexitus=ifelse(situacio=="D",dsituacio,NA), 
                    exitus=ifelse(situacio=="D",1,0))
 
-
 ```
 
 # Preparació III
@@ -139,15 +137,24 @@ if (!params$metode=="dinamica2") {
          datafi=as_date(datafi)) 
   }
 
-# En cohort dinamica datafi es mort o data maxima 
-if (params$metode=="dinamica2") {
+# # En cohort dinamica datafi es mort o data maxima 
+# if (params$metode=="dinamica2") {
+#   dt_ecap<-dt_ecap %>% 
+#   mutate(datafi=pmin(dtexitus,ymd(data_maxima),na.rm = T) %>% as_date()) }
+
+# Cohort dinamica trunco seguiment en canvi de grup (Control->DM)
+
+if (params$metode=="dinamica2") { 
   dt_ecap<-dt_ecap %>% 
-  mutate(datafi=pmin(dtexitus,ymd(data_maxima),na.rm = T) %>% as_date()) }
+  mutate(datafi=ifelse(grup==0 & EV.DM>=ymd(dtindex),EV.DM,dtexitus),
+         datafi=ifelse(grup==0 & is.na(EV.DM),dtexitus,datafi),
+         datafi=ifelse(is.na(datafi),ymd(data_maxima),datafi),
+         datafi=as_date(datafi)) 
+  }
 
 # Valida
 dt_ecap %>% valida_quanti("datafi","situacio")
 dt_ecap %>% select(datafi,situacio)
-
 
 ```
 
@@ -163,6 +170,7 @@ dt_ecap<-
 dt_ecap<-dt_ecap %>% mutate(temps_seguiment=datafi-ymd(dtindex))
 dt_ecap %>% valida_quanti("temps_seguiment","filtre_exitus")
 
+
 # Diagnostics/Events basals (Recode) (NA --> 0 (Else=1) (No hi ha 0))   ----------------
 dt_ecap<-dt_ecap %>% mutate_at(vars(starts_with("DG.")),funs('cat'=if_else(is.na(.) | 0,0,1))) 
 dt_ecap<-dt_ecap %>% mutate_at(vars(starts_with("EV.")),funs("cat"=if_else(is.na(.) | 0,0,1))) 
@@ -170,6 +178,7 @@ dt_ecap<-dt_ecap %>% mutate_at(vars(starts_with("EV.")),funs("cat"=if_else(is.na
 #  filtre 2: TBC inici de seguiment ----------------
 dt_ecap<-
   dt_ecap %>% mutate(filtre_TBC=ifelse(DG.TBC_cat==1,1,0))
+
 
 #
 table(dt_ecap$filtre_TBC)
@@ -205,8 +214,6 @@ dt_ecap<-dt_ecap %>% mutate(age=(ymd(dtindex)-dNaixement)/365.25, age=as.numeric
 
 # Data index numerica --------
 dt_ecap<-dt_ecap %>% mutate(anyindex=year(ymd(dtindex)))
-
-
 
 
 ```

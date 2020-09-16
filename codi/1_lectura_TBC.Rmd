@@ -1,12 +1,12 @@
 ---
 params:
+  cas_com_controls: yes
   dtindex_dinamica: no
   llistaPS:
   - sexe
   - any_naix
-  metode: "dinamica2" #estatica / PS / dinamica2 
+  metode: dinamica2
   num_controls: 1
-  cas_com_controls: TRUE
 ---
 
 # FASE LECTURA  
@@ -139,6 +139,9 @@ dt_cips_antic %>% anti_join(dt_cips, by="CIP")
 
 ```{r Formatar1, cache=TRUE}
 # Formatar dates
+
+
+
 dt_dades<-dt_dades %>% mutate(DATA_NAIX=as.Date(DATA_NAIX, origin = "1899-12-30"),
                     DAT_INCL=as.Date(DAT_INCL, origin = "1899-12-30"),
                     DAT_MORT=as.Date(DAT_MORT, origin = "1899-12-30"),
@@ -247,6 +250,9 @@ dt_variables <- dt_variables %>%
             dat=as.Date(VU_DAT_ACT),
             val=VU_VAL) %>% 
   filter((dat<=lubridate::ymd(data_fi_reclutament)))
+
+# Salvo historic d'analitiques
+saveRDS(dt_variables,here::here("dades","dt_variables.rds"))
 
 #4.3 DT_VACUNES
 dt_vacunes<- dt_vacunes %>% 
@@ -580,6 +586,11 @@ dt_antecedents.agregada3<-
 dt_antecedents.agregada<-dt_antecedents.agregada %>% full_join(dt_antecedents.agregada2) %>% full_join(dt_antecedents.agregada3) 
 rm(dt_antecedents.agregada2,dt_antecedents.agregada3)
 
+
+```
+
+
+```{r agregacions2}
 # Events --------------
 dt_events.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
                                            finestra.dies = c(+1,+Inf),prefix="EV.",camp_agregador="grup") 
@@ -656,6 +667,8 @@ dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>%
   left_join(dt_visites.agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_farmacs_agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_antidiabetics,by="CIP")
+
+
 
 
 

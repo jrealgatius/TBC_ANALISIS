@@ -58,13 +58,36 @@ subtitle: "`r params$subtitul`"
 
 ## Actualizaciones 
 
+
+>16/9/2020
+
+&check; Agregar variable tabaquisme en base a diagnóstic <br/>
+&check; Generar variable qualsevol vacuna <br/>
+
+
+>09/2020
+
+&check; Nova variable Tractament antidiabetic <br/>
+&check; Descriptiva comparativa d'events TVC del subestudi de DM vs no DM <br/>
+
+>22-30/06/2020
+
+&check; Recategorització de grups de paisos a) Espanya+Paisos Rics, b) India, pakistan , c) Resta, d) None) <br/>
+&check; En Cohort dinàmica, truncament de seguiment quan canvia de grup <br/>
+&check; Fer els truncaments a la cohort dinàmica <br/>
+&check; Descriptiu general del tots els casos de TBC ja siguin antencedents o events de la base de dades de l’Agència) <br/>
+&check; Capturar històric HBA1c.valor <br/>
+&check; Generació de variables HBA1c.valor en ultima data (dt_lliure_TBC: data de TBC o Última data de seguiment) <br/>
+&check; Comparativa de mitjanes últim valor HBA1c entre TBC's i no TBC's  <br/>
+
+
+## Hecho: 
+
 >08/06/2020
 
 &check; Reprogramació cohort dinàmica (Controls sense reemplaçament / Casos Reutilitzats) <br/>
 &check; Categorització de paisos <br/>
 &check; Actualització de resultats <br/>
-
-## Hecho: 
 
 >15/05/2020
 
@@ -126,8 +149,6 @@ subtitle: "`r params$subtitul`"
 - Alto número de valores faltantes en covariables
 
 
-
-
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, include=F,size="huge")
 library(ggplot2)
@@ -156,11 +177,16 @@ load(here::here(dir_output,"output3.Rdata"))
 dt_ecap<-netejar.noms.variables(dt_ecap) %>% as_tibble()
 dades<-dt_ecap
 
+dt_variables<-readRDS(here::here("dades","dt_variables.rds"))
+
+
+
+
 
 ```
 
 
-```{r formateig, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
 # Formateig ----------------
 # Calcul de variables noves edat etc..
 
@@ -185,14 +211,39 @@ dades<-dades %>% group_by(CIP) %>% arrange(dtindex) %>% mutate(seq=seq(1:n())) %
 # Dades basals (Prevalents vs incidents )
 dades<-dades %>% mutate(any2007=ifelse(anyindex<=2007,"Si","No"))
 
+# Tractament  (Sense tractament)
+
+dades<-
+  dades %>% mutate(FP_TRACTAMENT_AD=case_when(
+  FP.ADO=="No" & FP.ADO_ALT=="No" & FP.ADO_MET=="No" & FP.ADO_SU=="No" & FP.INSU=="No"~"Sense ADO ni Insu",
+  (FP.ADO=="Si" | FP.ADO_ALT=="Si" | FP.ADO_MET=="Si" | FP.ADO_SU=="Si") & FP.INSU=="No"~"Algun ADO",
+  FP.INSU=="Si"~"Insulina")) 
+
+# VACUNACIO
+dades<-dades %>% mutate(VACUNA= if_else(P_G_60.valor == "Si" | 
+                                 P_G_AD.valor== "Si" | 
+                                 P_G_AR.valor=="Si" | 
+                                 P_G_NE.valor=="Si","Si","No",missing = "No"))
+  
+
+
+```
+
+
+```{r formateig2, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+
 # Etiquetes de valors
 dades<-etiquetar_valors(dades, variables_factors= conductor_variables,fulla="etiquetes")
 
 # # Relevel 
 # dades2<- dades2 %>% mutate(grup=relevel(grup, "Control"))
 
-# Recode paisos
-dades<-etiquetar_valors(dades,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta2",missings = TRUE)
+# Recode paisos dos agrupacions
+dades<-etiquetar_valors(dades,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta2",missings = TRUE,new_vars = T,sufix = ".2")
+dades<-etiquetar_valors(dades,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta3",missings = TRUE)
+
+# Recodificar
+dades<-recodificar(dades,conductor_variables,"recode")
 
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
@@ -204,8 +255,6 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 # dades %>% filter(!is.na(DET2_TB)) %>% transmute(case.id,CIP,dtindex,DET_TB,lubridate::as_date(DET2_TB),event_tbc,filtre_TBC,grup)
 # 
 # dades %>% distinct(CIP)
-
-
 
 ```
 
@@ -253,6 +302,9 @@ dades$surv_tbc_agencia<-with(dades,Surv(temps_tbc, event_tbc_agencia))
 
 ```
 
+
+
+
 # Método 
 - Diseño de Cohortes retrospectivas.  
 - Periodo de reclutamiento: 2007 / 2007-2016 con seguimiento hasta 31/12/2018
@@ -291,13 +343,11 @@ criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris =
 
 
 ```{r aplica_filtres,include=T}
-
 dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
 
 # s'ha de tornar a etiquetar després de criteris_exclusió
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
-
 
 
 ```
@@ -314,6 +364,9 @@ formu<-formula_compare(x="basales",y="grup",taulavariables = conductor_variables
 
 descrTable(formu,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1) %>%
   export2md(caption = "Mediana [Min; Max] Descriptiva de validació per grups")
+
+
+dades %>% select(DG.TAB_cat,DG.TAB)
 
 
 
@@ -391,6 +444,10 @@ kable(resum_events_grup(dades,
                   temps="anys_lliure_tbc",
                   grup="descNacionalitat"),
       caption="Resum Incidència per País") %>% kableExtra::kable_styling()
+
+
+
+
 ```
 
 
@@ -444,6 +501,38 @@ HR.COX(x="HB_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = 
   kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
 
 
+HR.COX(x="HBcat_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR segons increment de HbA1c(%)") %>% kableExtra::kable_styling()
+
+HR.COX(x="HBcat_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+HR.COX(x="HBcat_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+
+```
+
+> Comparativa de mitjanes últim valor HBA1c entre TBC i no TBC's
+
+```{r ultimHB, include=T}
+# datafi 
+
+dt_temp<-dt_ecap %>% select(CIP,dtindex,dt_lliure_TBC) 
+
+dt_variables<-dt_variables %>% filter(cod=="HBA1c")
+
+dt_temp<-
+  dt_variables %>% 
+  semi_join(dt_temp,by="CIP") %>% left_join(dt_temp,by="CIP") %>% 
+  filter(dt_lliure_TBC-dat<=365 & dt_lliure_TBC-dat>=0) %>% # Filtro finestra 1 any previ
+  group_by(CIP) %>% slice(which.max(dat)) %>% ungroup() %>% 
+  select(CIP,HBA1C.ultim=val,dtindex)
+
+dt_ecap<-dt_ecap %>% left_join(dt_temp,by=c("CIP","dtindex"))
+  
+descrTable(event_tbc~HBA1C.ultim,data=dt_ecap) %>%
+  export2md(caption = "Mitjana i DT de la HBa1c més propera a TBC, vs últim valor ")
 
 ```
 
@@ -452,7 +541,7 @@ HR.COX(x="HB_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = 
 ```{r, include=T}
 # Numero de DM prevalents per any
 dades %>% mutate(any_DM=year(DG.DM),any_DM=ifelse(any_DM<=2007,"<=2007",as.character(any_DM))) %>% 
-  group_by(any_DM) %>% filter(!is.na(any_DM)) %>%   
+  group_by(any_DM) %>% filter(!is.na(any_DM)) %>%  
   summarise('Núm diabetics'=n_distinct(CIP)) %>% 
   kable(digits = 3,caption = "Diabètics a 2007 i incidents per any d'inclusió") %>% kableExtra::kable_styling()
   
@@ -506,11 +595,15 @@ dades %>% filter(!is.na(DET_TB)) %>% filter(event_tbc==1) %>%
 
 # Filtro dades de l'agencia
 
+events_dades_temp<-dades %>% filter(event_tbc==1) %>% select(CIP,event_tbc_cohort=event_tbc)
 
-dt_agencia <- dt_agencia %>% filter(dt_agencia==1) 
+dt_agencia <- 
+  dt_agencia %>% filter(dt_agencia==1) %>% 
+  left_join(events_dades_temp) %>% group_by(event_tbc_cohort) 
 
-dt_agencia %>% select(CIP,DET_TB,event_tbc) %>% 
-  summarise(n(),n_distinct(CIP), 'Events TBC'= sum(event_tbc=="Si")) %>% 
+
+dt_agencia %>% select(CIP,DET_TB,event_tbc,event_tbc_cohort) %>% semi_join(dades,by="CIP") %>% 
+  summarise(n(),n_distinct(CIP), 'Events TBC'= sum(event_tbc_cohort==1,na.rm = T)) %>% 
   kable(digits = 3,caption = "Casos de TBC de la base de dades de l'Agència") %>% kableExtra::kable_styling()
 
 
@@ -525,6 +618,9 @@ formula<-formula.text("taula",y="",taulavariables = conductor_agencia)
 descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F,method = 2, Q1=0,Q3=1) %>% 
   export2md(caption = "Descriptiva dades: Frequencia, Mín i Max)")
 
+
+
+
 ```
 
 
@@ -532,13 +628,26 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 
 
 ```{r, include=T}
-
-dt_temp<-dt_agencia %>% filter(event_tbc=="Si" & PS==1)
-
+dt_temp<-dt_agencia %>% filter(event_tbc_cohort==1 & PS==1)
 
 formula<-formula.text("taula",y="",taulavariables = conductor_agencia)
+
 descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F,method = 2, Q1=0,Q3=1) %>% 
   export2md(caption = "Descriptiva dades: Frequencia, Mín i Max)")
+
+
+```
+
+
+## Descriptiva comparativa de events TVC del subestudi entre DM vs no DM
+
+```{r, include=T}
+
+formula<-formula.text("taula",y="event_tbc",taulavariables = conductor_agencia)
+
+descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F, show.p.overall = F) %>% 
+  export2md(caption = "Descriptiva comparativa de dades DM vs no DM")
+
 
 
 
