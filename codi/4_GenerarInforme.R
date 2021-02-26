@@ -19,7 +19,7 @@ Generar_informe=function(metode="dinamica2") {
     subtitul="Cohorte ESTÁTICA MATCHING por PS" }
   
   rmarkdown::render("./codi/3_analisis_TBC.Rmd", 
-                    output_file = output,
+                    output_file = paste0(output,Sys.Date()),
                     output_dir = "codi/informes",
                     params=list(metode=metode,subtitul=subtitul),
                     envir = parent.frame() # Truc per que render dins funció no peti 
@@ -42,4 +42,13 @@ rmarkdown::render("./codi/2_preparacio_TBC.Rmd",params = list(metode=metode))
 Generar_informe(metode)
 
 
+###########   Generar informe 
+metode="dinamica2"
+subtitul="Cohorte DINÁMICA: Controles sin reemplazo"
+rmarkdown::render("./codi/3_analisis_TBC.Rmd", 
+                  output_file = paste0("informe_Cohort_Din",Sys.Date()),
+                  output_dir = "codi/informes",
+                  params=list(metode=metode,subtitul=subtitul),
+                  envir = parent.frame() # Truc per que render dins funció no peti 
+  )
 

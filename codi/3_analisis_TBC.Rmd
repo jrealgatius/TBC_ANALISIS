@@ -168,6 +168,9 @@ if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
 
+
+source("funcions_TBC.R")
+
 ```
 
 
@@ -178,9 +181,6 @@ dt_ecap<-netejar.noms.variables(dt_ecap) %>% as_tibble()
 dades<-dt_ecap
 
 dt_variables<-readRDS(here::here("dades","dt_variables.rds"))
-
-
-
 
 
 ```
@@ -229,21 +229,33 @@ dades<-dades %>% mutate(VACUNA= if_else(P_G_60.valor == "Si" |
 
 ```
 
-
-```{r formateig2, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
-
+```{r formateig2}
 # Etiquetes de valors
 dades<-etiquetar_valors(dades, variables_factors= conductor_variables,fulla="etiquetes")
-
-# # Relevel 
-# dades2<- dades2 %>% mutate(grup=relevel(grup, "Control"))
-
 # Recode paisos dos agrupacions
 dades<-etiquetar_valors(dades,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta2",missings = TRUE,new_vars = T,sufix = ".2")
 dades<-etiquetar_valors(dades,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta3",missings = TRUE)
 
+# Recode missings --> Espanya
+dades<-dades %>% 
+   mutate(descNacionalitat.2=if_else(descNacionalitat.2=="None","1. Espanya",descNacionalitat.2))
+   
+
+
+```
+
+
+```{r formateig3, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+# # Relevel 
+# dades2<- dades2 %>% mutate(grup=relevel(grup, "Control"))
 # Recodificar
 dades<-recodificar(dades,conductor_variables,"recode")
+
+# Recodificar en quartils i + categoria missings
+vars<-c("IMC.valor","PAD.valor","PAS.valor","visites_TOT")
+dades<-dades %>% 
+  mutate_at(vars,.funs = list(CATQ=~Hmisc::cut2(.,g=3,na.rm = T))) %>% 
+  mutate_at(vars(ends_with("_CATQ")), ~ifelse(is.na(.),"None",.) %>% as.factor())
 
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
@@ -283,7 +295,6 @@ dt_agencia<-dt_agencia %>% mutate_at(vars_factor,as.factor)
 # Etiquetar 
 dt_agencia<-etiquetar(d=dt_agencia,taulavariables=conductor_agencia)
 dt_agencia<-etiquetar_valors(dt=dt_agencia,variables_factors=conductor_agencia,fulla="etiquetes",camp_etiqueta="etiqueta2")
-
 
 # Events segons dades agencia
 # Capturar si l'event ve de dades d'agencia o NO 
@@ -352,6 +363,56 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 
 ```
 
+## Esquema de reclutamiento del estudio Diabeticos incidentes
+
+```{r esquema, include=TRUE}
+# Estatus competiting risk
+
+# Calculo censura_final (event, final_seguiment,exitus, canvigrup)
+dades<-dades %>% mutate(
+  datafi=if_else(datafi>lubridate::ymd(20181231),lubridate::ymd(20181231),datafi),
+  censura_tipo=case_when(datafi==lubridate::ymd(20181231)~"Fin estudio",
+                     datafi<lubridate::ymd(20181231) & exitus==1~"Exitus",
+                     datafi<lubridate::ymd(20181231) & exitus==0 ~"Cambio grupo"))
+
+# Calculo estatus
+dades<-dades %>% mutate(status=if_else(event_tbc==1,"Event",censura_tipo))
+
+llavor<-200
+
+dt_temp<-dades %>% filter(dtindex>20070101) %>% 
+  transmute(CIP,id=case.id,Grupo=grup,dtindex=lubridate::ymd(dtindex),datafi=datafi,situacio,
+            data0=lubridate::ymd(20070101),Sexo=sexe,dNaixement,
+            lab_SexEdat=stringr::str_c(Sexo,lubridate::year(dNaixement)-lubridate::year(dtindex)),
+            EV.TBC_cat,event_tbc,censura_tipo) %>% 
+  mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>% 
+  mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
+
+pp<-dt_temp %>% Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat")
+
+pp
+
+# Truncamiento 
+# Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
+pp + 
+  geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
+  geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
+  scale_shape(solid=FALSE) +
+  theme(legend.position="right")+
+  annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "Fin seguimiento",size=3,fontface="bold") +
+  ylab("Sujetos") +
+  xlab("Tiempo de reclutamiento y seguimiento")+
+  labs(title="Figura 1. Esquema de reclutamiento y seguimiento",
+       subtitle = "Muestra de 5 parejas de individuos seleccionados por edad y sexo",
+       color="Grupo:",
+       shape="")
+  
+
+
+
+```
+
+
 
 # Resultats
 
@@ -366,17 +427,12 @@ descrTable(formu,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1) 
   export2md(caption = "Mediana [Min; Max] Descriptiva de validació per grups")
 
 
-dades %>% select(DG.TAB_cat,DG.TAB)
-
-
-
 ```
 
 
 ## Característiques basals per grups
 
 - Descriptiu de característiques basals entre grups
-
 
 ```{r resultats1, include=T, warning=FALSE,echo=FALSE, message=F}
 
@@ -396,7 +452,38 @@ dades_CIP<-dades %>% group_by(CIP) %>% sample_n(1) %>% ungroup()
 # descrTable(formu,data=dades_CIP,show.p.overall = T,show.n = T, hide.no = T,hide = "No")
 
 
+
 ```
+
+- Descriptiu de característiques basals entre grups (DM1, DM2 vs controls)
+
+Nota 1: hi ha pacients classificats en DM1 i DM2. De moment es prioritza DM2
+Nota 2: Laparellament NO es manté en la comparativa de DM1 versus DM2
+
+
+```{r}
+# Mana DMT2
+dades<-dades %>% mutate(grup2=case_when(grup=="Control"~"Control",
+                                 DG.DM1_cat=="Yes"~"DM1",
+                                 DG.DM2_cat=="Yes"~"DM2"))
+# Mana DMT2 en cas de cap DG.
+dades<-dades %>% mutate (grup2=if_else(is.na(grup2),"DM2",grup2))
+
+# DM Prevalent/incident
+dades<-dades %>% 
+  mutate(grup3=case_when(grup=="Diabetis" & any2007=="Si"~ "DM Prevalent",
+                         grup=="Diabetis" & any2007=="No"~ "DM Incident", 
+                         grup=="Control"~"Control")) 
+
+
+#
+formu<-formula_compare(x="basales",y="grup2",taulavariables = conductor_variables)
+descrTable(formu,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "No", show.p.mul = T,p.corrected = TRUE) %>% 
+  export2md(caption = "Descriptiva de caracterítiques basals entre grups (Frequencia, Mitjana (SD))")
+
+
+```
+
 
 
 ## Incidència global de TBC (TBC només confirmats segons dades ASPB)
@@ -404,37 +491,178 @@ dades_CIP<-dades %>% group_by(CIP) %>% sample_n(1) %>% ungroup()
 ```{r resultats5, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 # T BASAL -------------
 
-kable(resum_events(dades = dades,evento="event_tbc",temps="anys_lliure_tbc",valorevent = "1"),caption="Resum d'events") %>% kableExtra::kable_styling()
+dades %>% Resum_taxa_incidencia(evento="event_tbc",temps="anys_lliure_tbc",valorevent="1") %>% 
+  kable(caption="Resum d'events") %>% kableExtra::kable_styling() 
 
-taula_IA_grup<-dades %>% base::split(dades$grup) %>% 
-  map(~resum_events(dades = .x,evento="event_tbc",temps="anys_lliure_tbc",valorevent = "1")) %>% 
-  map(as_tibble) %>% 
-  map_df(bind_rows,.id = "grup") %>% 
-  as_tibble()
+dades %>% split(.$grup) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
+  kable(caption="Resum d'events per grups") %>% kableExtra::kable_styling()
 
-kable(taula_IA_grup,caption="Resum d'events per exposició a diabetis") %>% kableExtra::kable_styling()
-descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
+dades %>% split(.$grup2) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
+  kable(caption="Resum d'events per tipo de DM") %>% kableExtra::kable_styling()
+
+dades %>% split(.$grup3) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
+  kable(caption="Resum d'events per DM prevalent(Yes) / Incident (No)") %>% kableExtra::kable_styling()
+
+
+descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ,surv = T) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
+
+descrTable(surv_tbc~grup2,data=dades,show.ratio = T, byrow = T ,surv = T) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
+
+descrTable(surv_tbc~grup3,data=dades,show.ratio = T, byrow = T ,surv = T) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
+
+
 ```
 
 
-## HR Crus i ajustats
+## Generació de HR Crus i ajustats
+
+- No ajustats, + 2 ajustos segons 2 models
+- Riscos competitius Fine & Grey
+- Complet cases (Covariables cat Missings) versus Imputació multiples de missings
+
+
+```{r funcionsHR, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+if (params$metode=="dinamica2") cluster="case.id" else cluster=""
+
+extreure_HR<-function(a="grup2",x="DM_ajust",c=c,...) { 
+
+  if (x!="") covariables<-c(a,extreure.variables(x,conductor_variables)) %>% unique() %>% paste0(collapse = ", ")
+  if (x=="") covariables<-c(a) 
+  
+  if (c=="") method="PHCox" else method="PHCox-clusters"
+  
+  num_nivells<-levels(as.factor(dades[[a]])) %>% length()
+  
+  HR.COX(a=a,x=x,...) %>% as_tibble(rownames="id") %>% 
+    transmute(var=id,HR=HRadjusted,`Li95%CI`=IC951,`Ls95%CI`=IC952,`p-value`=p,method=method,adjustedby=covariables) %>% 
+    filter(row_number() %in% c(1,num_nivells-1))
+  
+  }
+
+Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2") {
+  
+  # dt=dades
+  # cov1="DM_ajust"
+  
+   if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
+  
+   cov1 <- stats::model.matrix(formula_vector(covariables,""),data = dt)[, -1]
+    
+    model<-crrSC::crrc(ftime=dt$temps_tbc,
+                           fstatus=dt$status,
+                           cov1=cov1,
+                           cluster=dt$case.id, 
+                           failcode = "Event", 
+                           cencode = "Fin estudio")
+
+    tab<-cmprsk::summary.crr(model) 
+    tab<- tibble(var=colnames(cov1)) %>% bind_cols(tab$coef %>% as_tibble())
+    
+    num_nivells<-levels(as.factor(dades[[a]])) %>% length()
+    
+    x<-tab %>% 
+      transmute(var,
+                HR=`exp(coef)`, 
+                `Li95%CI`=exp(coef- qnorm(1 - (1-0.95)/2)*`se(coef)`),
+                `Ls95%CI`=exp(coef+ qnorm(1 - (1-0.95)/2)*`se(coef)`),
+                `p-value`) %>% 
+    filter(row_number() %in% c(1,num_nivells-1))
+    
+ 
+    as_tibble(x) %>% bind_cols(method="Competingrisk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
+
+    }
+
+
+
+```
+
 
 ```{r resultats7, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
-if (params$metode=="dinamica2") cluster="case.id" else cluster=""
+taula_models<-
+  extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  bind_rows(extreure_HR(a="grup",x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)) %>% 
+  bind_rows(extreure_HR(a="grup",x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)) %>%   bind_rows(extreure_HR(a="grup",x="DM_ajust3",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster))
 
-HR.COX(x="DM_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
-  kable(digits = 3,caption = "HR cru") %>% kableExtra::kable_styling()
 
-HR.COX(x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
-  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+```
 
-HR.COX(x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
-  kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+```{r resultats8, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+# Model de riscos (dades, covariables)
+
+mod1<-Estima_HR_RCrisk_clusters(dades,"",a="grup") 
+
+mod2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup") 
+
+mod3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust2",a="grup") 
+
+mod4<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup") 
+
+# dades %>% select(grup,grup2)
+
+# printar models
+mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) %>% bind_rows(taula_models %>% select(-var)) %>% 
+  kable(digits = 3,caption = "HR de risk de TB segons diferents models ajustats ")
+
+
+```
+
+
+## Risk de TB en funció de Tipus de DM i en funció de prevalent incident
+
+```{r}
+
+taula_models2<-
+  extreure_HR(a="grup2",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
+  bind_rows(extreure_HR(a="grup2",x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)) %>% 
+  bind_rows(extreure_HR(a="grup2",x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)) %>%   bind_rows(extreure_HR(a="grup2",x="DM_ajust3",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster))
+
+
+
+mod1.2<-Estima_HR_RCrisk_clusters(dades,"",a="grup2") 
+mod2.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup2") 
+
 
 
 
 ```
+
+
+
+```{r testimputacions, eval=FALSE}
+# generar dades imputades MICE
+dt_temp<-dades %>% 
+  select(extreure.variables("imp",conductor_variables))
+
+# Imputing
+imp<-mice::mice(dt_temp,m=3,method = "pmm", maxit=3)
+
+survival::coxph(Surv(temps_tbc, event_tbc)~grup,data=dades) 
+survival::coxph(Surv(temps_tbc, event_tbc)~grup + cluster(case.id),data=dades,id=CIP) 
+
+# Via imputació multiple
+pp<-with(imp,coxph(Surv(temps_tbc, event_tbc) ~ grup  + cluster(case.id),robust = T)) %>% 
+  mice::pool() %>% 
+  summary()
+# exp(pp$estimate)
+
+with(imp,coxph(Surv(temps_tbc, event_tbc) ~ grup)) %>% 
+  mice::pool() %>% 
+  summary()
+
+# Ara fem lo mateix amb competingrisk
+model<-crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetis"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio")
+summary(model)
+
+# ImpPUTAció
+pp<-with(imp,crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetis"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio"))
+
+pp %>% mice::pool()
+
+```
+
 
 ## Incidència TBC per pais
 
@@ -446,18 +674,26 @@ kable(resum_events_grup(dades,
       caption="Resum Incidència per País") %>% kableExtra::kable_styling()
 
 
-
-
 ```
 
 
 ## Supervivencia lliure d'esdeveniment K-M (TBC)
 
-```{r figura1, include=T, fig.asp=1}
-survfit(surv_tbc ~ grup, data=dades) %>%
-  ggsurvplot(title="TB detection in patient with or without DM",
-             p.val=T, xlab="Time (Years)", censor=F, linetype="strata",
-             fun="event", cumevents = T,risk.table = F,xscale=365.25,break.x.by = 365.25)
+```{r figura1, include=T}
+fit<-survfit(surv_tbc ~ grup, data=dades) 
+  
+pp<-ggsurvplot(fit, 
+               title="Figura 2. Incidencia acumulada de tuberculosis por grupo",
+               p.val=T, censor=F, linetype="strata",
+               fun="event", 
+               cumevents = F,
+               risk.table = FALSE,xscale=365.25,break.x.by = 365.25, conf.int = T)
+
+pp + 
+  xlab("Tiempo en años") + 
+  ylab("") 
+  
+
 ```
 
 
@@ -472,12 +708,10 @@ res.cox %>% sjPlot::tab_model(show.p = FALSE)
 
 summary(res.cox)
 
-ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" , fun="cumhaz",
+ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" ,  fun="cumhaz",
                  title="Fitted Cox Model to TB detection in patient with or without DM")
 
 
-ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup", fun="event",
-                 title="Fitted Cox Model to TB detection in patient with or without DM")
 
 
 
@@ -500,7 +734,6 @@ HR.COX(x="HB_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = c
 HR.COX(x="HB_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
   kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
 
-
 HR.COX(x="HBcat_cru",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
   kable(digits = 3,caption = "HR segons increment de HbA1c(%)") %>% kableExtra::kable_styling()
 
@@ -514,6 +747,7 @@ HR.COX(x="HBcat_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables
 ```
 
 > Comparativa de mitjanes últim valor HBA1c entre TBC i no TBC's
+
 
 ```{r ultimHB, include=T}
 # datafi 
@@ -595,16 +829,21 @@ dades %>% filter(!is.na(DET_TB)) %>% filter(event_tbc==1) %>%
 
 # Filtro dades de l'agencia
 
-events_dades_temp<-dades %>% filter(event_tbc==1) %>% select(CIP,event_tbc_cohort=event_tbc)
+events_dades_temp<-dades %>% filter(event_tbc==1) %>% select(CIP,event_tbc_cohort=event_tbc,grup)
 
 dt_agencia <- 
-  dt_agencia %>% filter(dt_agencia==1) %>% 
-  left_join(events_dades_temp) %>% group_by(event_tbc_cohort) 
+  dt_agencia %>% filter(dt_agencia==1) %>% select(-"grup") %>% 
+  left_join(events_dades_temp,by="CIP") 
 
+
+# # llistat de TBC repetits 
+# dt_agencia %>% group_by(CIP) %>% mutate(n_CIP=n()) %>% ungroup() %>% filter(n_CIP>1 & event_tbc_cohort==1) 
 
 dt_agencia %>% select(CIP,DET_TB,event_tbc,event_tbc_cohort) %>% semi_join(dades,by="CIP") %>% 
   summarise(n(),n_distinct(CIP), 'Events TBC'= sum(event_tbc_cohort==1,na.rm = T)) %>% 
   kable(digits = 3,caption = "Casos de TBC de la base de dades de l'Agència") %>% kableExtra::kable_styling()
+
+
 
 
 ``` 
@@ -620,11 +859,10 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 
 
 
-
 ```
 
 
-## Descriptiu nomes events TVC del subestudi
+## Descriptiu nomes events TBC del subestudi
 
 
 ```{r, include=T}
@@ -635,17 +873,18 @@ formula<-formula.text("taula",y="",taulavariables = conductor_agencia)
 descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F,method = 2, Q1=0,Q3=1) %>% 
   export2md(caption = "Descriptiva dades: Frequencia, Mín i Max)")
 
+table(dt_agencia$MEDEA)
 
 ```
 
 
-## Descriptiva comparativa de events TVC del subestudi entre DM vs no DM
+## Descriptiva comparativa de events TBC del subestudi entre DM vs no DM
 
 ```{r, include=T}
 
-formula<-formula.text("taula",y="event_tbc",taulavariables = conductor_agencia)
+formula<-formula.text("taula",y="grup",taulavariables = conductor_agencia)
 
-descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F, show.p.overall = F) %>% 
+descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=F, show.p.overall = T) %>% 
   export2md(caption = "Descriptiva comparativa de dades DM vs no DM")
 
 
