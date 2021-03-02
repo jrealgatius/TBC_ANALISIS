@@ -188,6 +188,10 @@ table(dt_ecap$filtre_TBC)
 # Calculo temps de seguiment  ----------
 
 ```{r}
+# trunco datafi a 31/12/2018
+dt_ecap<-dt_ecap %>% mutate(datafi=if_else(datafi>lubridate::ymd(20181231),lubridate::ymd(20181231),datafi))
+
+# Calculo temps de seguiment
 dt_ecap<-dt_ecap %>% mutate(temps_seguiment=datafi-ymd(dtindex))
 dt_ecap %>% valida_quanti("temps_seguiment","filtre_exitus")
 
@@ -272,7 +276,7 @@ dir.create(here::here("dades/output_dinamic2"))
 dir.create(here::here("dades/output_PS"))
 
 
-save(dt_ecap,dt_agencia, file=here::here(dir_output,"output3.Rdata"))
+save(dt_ecap,dt_agencia, file=here::here(dir_output,"output4.Rdata"))
 
 ```
 

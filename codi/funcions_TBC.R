@@ -59,14 +59,14 @@ Esquema_ggplot<-function(dt=dt_temp,datainicial="data",datafinal="datafi",id="id
   
   }
   
-
+"Cox proportional hazards"
 
 extreure_HR<-function(a="grup2",x="DM_ajust",c=c,...) { 
   
   if (x!="") covariables<-c(a,extreure.variables(x,conductor_variables)) %>% unique() %>% paste0(collapse = ", ")
   if (x=="") covariables<-c(a) 
   
-  if (c=="") method="PHCox" else method="PHCox-clusters"
+  if (c=="") method="Cox-PH" else method="Cox PH by clusters"
   
   num_nivells<-levels(as.factor(dades[[a]])) %>% length()
   
@@ -76,7 +76,7 @@ extreure_HR<-function(a="grup2",x="DM_ajust",c=c,...) {
   
 }
 
-Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2") {
+Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode = "Event",cencode = "End of follow-up") {
   
   # dt=dades
   # cov1=""
@@ -91,13 +91,13 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2") {
                      fstatus=dt$status,
                      cov1=cov1,
                      cluster=dt$case.id, 
-                     failcode = "Event", 
-                     cencode = "Fin estudio")
+                     failcode = failcode, 
+                     cencode = cencode)
   
   tab<-cmprsk::summary.crr(model) 
   tab<- tibble(var=nomscovariables) %>% bind_cols(tab$coef %>% as_tibble())
   
-  num_nivells<-levels(as.factor(dades[[a]])) %>% length()
+  num_nivells<-levels(as.factor(dt[[a]])) %>% length()
   
   x<-tab %>% 
     transmute(var,
@@ -108,9 +108,34 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2") {
     filter(row_number() %in% c(1,num_nivells-1))
   
   
-  as_tibble(x) %>% bind_cols(method="Competingrisk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
+  as_tibble(x) %>% bind_cols(method="Competing risk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
   
 }
+
+plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "End of follow-up") {
+  
+  # dt=dades
+  # cov1=""
+  # a="grup"
+  # failcode = "Event"
+  # cencode = "End of follow-up"
+  model_cuminc<-cmprsk::cuminc(ftime=dt$temps_tbc,
+                        group=dt[[a]],
+                        fstatus=dt[["status"]],
+                        cencode = cencode)
+ 
+  model_cuminc$`Control Exitus`<-NULL
+  model_cuminc$`Diabetis Exitus`<-NULL
+  model_cuminc$`Control Swich group`<-NULL
+  model_cuminc$`Diabetis Swich group`<-NULL
+  
+  p<-survminer::ggcompetingrisks(model_cuminc,conf.int = F,multiple_panels=F, 
+                                 xlab="Days",ylab="Cumulative incidence of Tuberculusis",
+                                 title = "Competing risks analysis")
+  
+  p$mapping <- aes(x = time, y = est, colour = group, linetype = event)
+  p + labs(linetype = "Tuberculosis", colour = "")
+  }
 
 
 

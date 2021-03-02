@@ -176,7 +176,7 @@ source("funcions_TBC.R")
 
 ```{r, include=FALSE}
 
-load(here::here(dir_output,"output3.Rdata"))
+load(here::here(dir_output,"output4.Rdata"))
 dt_ecap<-netejar.noms.variables(dt_ecap) %>% as_tibble()
 dades<-dt_ecap
 
@@ -255,7 +255,9 @@ dades<-recodificar(dades,conductor_variables,"recode")
 vars<-c("IMC.valor","PAD.valor","PAS.valor","visites_TOT")
 dades<-dades %>% 
   mutate_at(vars,.funs = list(CATQ=~Hmisc::cut2(.,g=3,na.rm = T))) %>% 
-  mutate_at(vars(ends_with("_CATQ")), ~ifelse(is.na(.),"None",.) %>% as.factor())
+  mutate_at(vars(ends_with("_CATQ")), ~ifelse(!is.na(.),levels(.),"None") %>% as.factor())
+
+
 
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
@@ -371,9 +373,10 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 # Calculo censura_final (event, final_seguiment,exitus, canvigrup)
 dades<-dades %>% mutate(
   datafi=if_else(datafi>lubridate::ymd(20181231),lubridate::ymd(20181231),datafi),
-  censura_tipo=case_when(datafi==lubridate::ymd(20181231)~"Fin estudio",
+  censura_tipo=case_when(datafi==lubridate::ymd(20181231)~"End of follow-up",
                      datafi<lubridate::ymd(20181231) & exitus==1~"Exitus",
-                     datafi<lubridate::ymd(20181231) & exitus==0 ~"Cambio grupo"))
+                     datafi<lubridate::ymd(20181231) & exitus==0 ~"Swich group"))
+
 
 # Calculo estatus
 dades<-dades %>% mutate(status=if_else(event_tbc==1,"Event",censura_tipo))
@@ -399,12 +402,12 @@ pp +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
   theme(legend.position="right")+
-  annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "Fin seguimiento",size=3,fontface="bold") +
-  ylab("Sujetos") +
-  xlab("Tiempo de reclutamiento y seguimiento")+
-  labs(title="Figura 1. Esquema de reclutamiento y seguimiento",
-       subtitle = "Muestra de 5 parejas de individuos seleccionados por edad y sexo",
-       color="Grupo:",
+  annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
+  ylab("Subjects") +
+  xlab("Time")+
+  labs(title="Figura 1. Sampling and follow-up scheme",
+       subtitle = "5 pairs of individuals by age and sex",
+       color="Group:",
        shape="")
   
 
@@ -430,9 +433,11 @@ descrTable(formu,data=dades,show.p.overall = F,show.n = T,method = 2,Q1=0,Q3=1) 
 ```
 
 
-## Característiques basals per grups
+## TABLE 1. Característiques basals per grups
 
 - Descriptiu de característiques basals entre grups
+
+- Table 1. Baseline characteristics of the study variables between diabetics and non-diabetics in both cohorts
 
 ```{r resultats1, include=T, warning=FALSE,echo=FALSE, message=F}
 
@@ -455,6 +460,7 @@ dades_CIP<-dades %>% group_by(CIP) %>% sample_n(1) %>% ungroup()
 
 ```
 
+
 - Descriptiu de característiques basals entre grups (DM1, DM2 vs controls)
 
 Nota 1: hi ha pacients classificats en DM1 i DM2. De moment es prioritza DM2
@@ -462,6 +468,7 @@ Nota 2: Laparellament NO es manté en la comparativa de DM1 versus DM2
 
 
 ```{r}
+
 # Mana DMT2
 dades<-dades %>% mutate(grup2=case_when(grup=="Control"~"Control",
                                  DG.DM1_cat=="Yes"~"DM1",
@@ -484,25 +491,43 @@ descrTable(formu,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "N
 
 ```
 
+## Table 2
 
+Table 2. Baseline characteristics of patients in diabetic cohort 
+
+```{r}
+
+dt_temp<-dades %>% filter(grup=="Diabetis")
+
+formu<-formula_compare(x="table2",y="",taulavariables = conductor_variables)
+descrTable(formu,data=dt_temp,show.p.overall = F,show.n = T, hide.no = T,hide = "No") %>% 
+  export2md(caption = "Baseline characteristics of patients in diabetic cohort")
+
+```
 
 ## Incidència global de TBC (TBC només confirmats segons dades ASPB)
+
+- Table 3: Incidence of TB in DM and non-DM patients 
+
+
 
 ```{r resultats5, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 # T BASAL -------------
 
-dades %>% Resum_taxa_incidencia(evento="event_tbc",temps="anys_lliure_tbc",valorevent="1") %>% 
-  kable(caption="Resum d'events") %>% kableExtra::kable_styling() 
+res1<-dades %>% Resum_taxa_incidencia(evento="event_tbc",temps="anys_lliure_tbc",valorevent="1") %>% mutate(Grup="Overall")
 
-dades %>% split(.$grup) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
-  kable(caption="Resum d'events per grups") %>% kableExtra::kable_styling()
+res2<-dades %>% split(.$grup) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") 
 
-dades %>% split(.$grup2) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
-  kable(caption="Resum d'events per tipo de DM") %>% kableExtra::kable_styling()
+res3<-dades %>% split(.$grup2) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") 
+res4<-dades %>% split(.$grup3) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") 
 
-dades %>% split(.$grup3) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Grup") %>% 
-  kable(caption="Resum d'events per DM prevalent(Yes) / Incident (No)") %>% kableExtra::kable_styling()
+res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4) %>% 
+  kable(digits = 2,caption = "Table3. Incidence of TB in DM and non-DM patients ") %>% kableExtra::kable_styling()
 
+```
+
+
+```{r resultats6, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge",eval=FALSE}
 
 descrTable(surv_tbc~grup,data=dades,show.ratio = T, byrow = T ,surv = T) %>% export2md(caption = "Incidència i Hazard Ratio de Tuberculosis")
 
@@ -514,14 +539,14 @@ descrTable(surv_tbc~grup3,data=dades,show.ratio = T, byrow = T ,surv = T) %>% ex
 ```
 
 
-## Generació de HR Crus i ajustats
+### Generació de HR Crus i ajustats
 
-- No ajustats, + 2 ajustos segons 2 models
+- No ajustats, + ajustos segons 2 models
 - Riscos competitius Fine & Grey
 - Complet cases (Covariables cat Missings) versus Imputació multiples de missings
 
 
-```{r resultats7, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+```{r genero_HR, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 
 if (params$metode=="dinamica2") cluster="case.id" else cluster=""
 
@@ -533,43 +558,64 @@ mod3<-extreure_HR(a="grup",x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dad
 
 mod4<-extreure_HR(a="grup",x="DM_ajust3",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Model 3")
 
-
 # guardar resum models
-taula_models_COX<- mod1 %>% 
-  bind_rows(mod2) %>% 
-  bind_rows(mod3) %>% 
-  bind_rows(mod4) 
-  
+taula_models_COX<- mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) 
 
-
-```
-
-
-```{r resultats8, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 # Model de riscos (dades, covariables)
 
-mod1<-Estima_HR_RCrisk_clusters(dades,"",a="grup") %>% mutate(adjust="Unadjusted")
+mod1<-Estima_HR_RCrisk_clusters(dades,"",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Unadjusted")
 
-mod2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup") %>% mutate(adjust="Model 1")
+mod2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 1")
 
-mod3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust2",a="grup") %>% mutate(adjust="Model 2")
+mod3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust2",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 2")
 
-mod4<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup") %>% mutate(adjust="Model 3")
+mod4<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 3")
 
 # dades %>% select(grup,grup2)
 # printar models
 taula_models<-mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) %>% bind_rows(taula_models_COX)
   
-taula_models %>%  kable(digits = 3,caption = "HR de risk de TB segons diferents models ajustats ") %>% 
-  kableExtra::kable_styling()
 
+```
+
+
+## Risk de TB en funció de Tipus de DM i en funció de DM prevalent incident i tipus de DM (Tipo 1 / tipo 2)
+
+- HR segons model complet (ajust3) per riscos competitius
+- Incloure-ho en table 3
+
+```{r,include=T}
+
+mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup",failcode = "Event",cencode = "End of follow-up") 
+mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup2",failcode = "Event",cencode = "End of follow-up") 
+mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup3",failcode = "Event",cencode = "End of follow-up") 
+
+
+mom5.1 %>% 
+  bind_rows(mom5.2) %>% bind_rows(mom5.3) %>%  
+  kable(digits = 3,caption = "HR de risk de TB segons diferents models ajustats ") %>% 
+  kableExtra::kable_styling()
 
 
 ```
 
-## Forest plot analisis de sensibilitat
 
-```{r}
+## Sensitivity analysis
+
+- Suplementary material
+- Format taula i format forest-plot
+
+```{r resultats8, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
+
+taula_models %>%  kable(digits = 3,caption = "HR de risk de TB segons diferents models ajustats ") %>% 
+  kableExtra::kable_styling()
+
+
+```
+
+### Forest plot sensitivity analysis
+
+```{r,include=T}
 
 forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
@@ -584,26 +630,7 @@ forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%
 
 ```
 
-## Risk de TB en funció de Tipus de DM i en funció de prevalent incident
 
-```{r}
-
-mod1<-extreure_HR(a="grup2",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)
-
-mod2<-extreure_HR(a="grup2",x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)
-
-mod3<-extreure_HR(a="grup2",x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)
-
-mod4<-extreure_HR(a="grup2",x="DM_ajust3",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster)
-
-
-mod1.2<-Estima_HR_RCrisk_clusters(dades,"",a="grup2") 
-mod2.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup2") 
-
-
-
-
-```
 
 
 
@@ -653,7 +680,7 @@ kable(resum_events_grup(dades,
 ```
 
 
-## Supervivencia lliure d'esdeveniment K-M (TBC)
+## Figura d'incidencia acumulada de TB  segons K-Meier (TBC)
 
 ```{r figura1, include=T}
 fit<-survfit(surv_tbc ~ grup, data=dades) 
@@ -676,7 +703,6 @@ pp +
 ## Gràfica estimada del Model de cox
 
 ```{r figura_COX, include=T, fig.asp=1, results="asis"}
-
 if (params$metode=="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age+cluster(case.id), data=dades) 
 if (params$metode!="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age, data=dades) 
 
@@ -686,10 +712,16 @@ summary(res.cox)
 
 ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" ,  fun="cumhaz",
                  title="Fitted Cox Model to TB detection in patient with or without DM")
+```
 
 
+```{r figura_CP_RISK, include=T, fig.asp=1, results="asis"}
 
+# Graficar segons riscos competitius
 
+pp<-plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up")
+
+pp
 
 
 ```
