@@ -78,8 +78,10 @@ extreure_HR<-function(a="grup2",x="DM_ajust",c=c,...) {
 
 Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode = "Event",cencode = "End of follow-up") {
   
+  # failcode = "Event"
+  # cencode = "End of follow-up"
   # dt=dades
-  # cov1=""
+  # cov1="DM_ajust3"
   # a="grup"
   
   if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
@@ -226,6 +228,81 @@ forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Lin
   
   
 }
+
+
+model_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode = "Event",cencode = "End of follow-up") {
+  
+  # failcode = "Event"
+  # cencode = "End of follow-up"
+  # dt=dades
+  # cov1="DM_ajust3"
+  # a="grup"
+  
+  if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
+  
+  # rename etiquetes per diferent valor 
+  nousnoms<-etiquetar_taula(as_tibble(covariables),camp="value",taulavariables=conductor_variables,camp_descripcio= "Descripcio") %>% pull(value)
+  dt<-dt %>% rename_at(vars(covariables),~nousnoms)
+
+  nomscovariables<-colnames(stats::model.matrix(formula_vector(nousnoms,""),data = dt))[-1]
+  cov1 <- stats::model.matrix(formula_vector(nousnoms,""),data = dt)[, -1]
+  
+  # nomscovariables<-colnames(stats::model.matrix(formula_vector(covariables,""),data = dt))[-1]
+  # cov1 <- stats::model.matrix(formula_vector(covariables,""),data = dt)[, -1]
+
+  model<-crrSC::crrc(ftime=dt$temps_tbc,
+                     fstatus=dt$status,
+                     cov1=cov1,
+                     cluster=dt$case.id, 
+                     failcode = failcode, 
+                     cencode = cencode,maxiter=3)
+  
+  tab<-cmprsk::summary.crr(model) 
+  tab<- tibble(var=nomscovariables) %>% bind_cols(tab$coef %>% as_tibble())
+  
+  num_nivells<-levels(as.factor(dt[[a]])) %>% length()
+  
+  x<-tab %>% 
+    transmute(var,
+              HR=`exp(coef)`, 
+              `Li95%CI`=exp(coef- qnorm(1 - (1-0.95)/2)*`se(coef)`),
+              `Ls95%CI`=exp(coef+ qnorm(1 - (1-0.95)/2)*`se(coef)`),
+              `p-value`) 
+  
+  resum<-as_tibble(x) %>% bind_cols(method="Competing risk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
+  
+  list(model_crrsc=model,resum_crrsc=resum)
+  
+  
+}
+
+
+forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="OR (95% CI)", intercept=1) {
+  
+  # dadesmodel=dt_dif
+  # label="lipo"
+  # mean="dif_st"
+  # lower ="ci1"
+  # upper="ci2"
+  # label_X="Differences standardized (95% CI)"
+  # intercept=0
+  
+  # dadesmodel<-dadesmodel %>% mutate(id=seq(length(dadesmodel[[label]])))
+  
+  # Generar data set 
+  dadestemp <- dadesmodel %>% select(etiqueta=!!label,valor=!!mean,Linf=!!lower,Lsup=!!upper,id) %>% arrange(id)
+  
+  fp <- ggplot(data=dadestemp,aes(x=id, y=valor, ymin=Linf, ymax=Lsup)) +
+    geom_pointrange() + 
+    geom_hline(yintercept=intercept, lty=2) +  # add a dotted line at x=1 after flip
+    coord_flip() +  # flip coordinates (puts labels on y axis)
+    xlab("Label") + ylab(label_X) +
+    scale_x_continuous(breaks=dadestemp %>% pull(id),labels=dadestemp %>% pull(etiqueta))
+  
+  fp
+  
+}
+
 
 
 
