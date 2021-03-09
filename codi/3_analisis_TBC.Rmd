@@ -16,6 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
+  test: TRUE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -186,6 +187,21 @@ dt_variables<-readRDS(here::here("dades","dt_variables.rds"))
 ```
 
 
+```{r mostreigtest}
+
+if (params$test==T) {
+  dt_temp<-dades %>% select(case.id) %>% sample_n(2000)
+  dades<-dades %>% semi_join(dt_temp)
+  dt_ecap<-dt_ecap %>% semi_join(dt_temp)
+  
+  }
+
+
+```
+
+
+
+
 ```{r formateig, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
 # Formateig ----------------
 # Calcul de variables noves edat etc..
@@ -243,14 +259,21 @@ dades<-dades %>%
   mutate(descNacionalitat.2=if_else(descNacionalitat.2=="None","1. Espanya",descNacionalitat.2))
  
 
+
 ```
 
 
 ```{r formateig3, message=FALSE, warning=FALSE, include=F, echo=FALSE,size="huge"}
+
+# Recode visites - missings--0
+dades<-dades %>% mutate_at(vars(starts_with("visites_")), ~if_else(is.na(.),0,.)) 
+
 # # Relevel 
 # dades2<- dades2 %>% mutate(grup=relevel(grup, "Control"))
 # Recodificar
 dades<-recodificar(dades,conductor_variables,"recode")
+#
+dades<-recodificar2(dades,conductor_variables,"recode2",missings = T,prefix="cat")
 
 # Recodificar en quartils i + categoria missings
 vars<-c("IMC.valor","PAD.valor","PAS.valor","visites_TOT","visites_MG")
@@ -541,36 +564,34 @@ descrTable(surv_tbc~grup3,data=dades,show.ratio = T, byrow = T ,surv = T) %>% ex
 - DM1 DM2, incident and prevalent versus Control
 
 ```{r genero_HR, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
-
 # Estimació de HR complets de riscos competitius
 
 if (params$metode=="dinamica2") cluster="case.id" else cluster=""
 
-mod1<-extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Unadjusted")
+# Ajustos
+vector_ajustos<-c("","DM_ajust","DM_ajust2","DM_ajust3","DM_ajust4","DM_ajust5","DM_ajust6") %>% 
+  stats::setNames(c("Unadjust","Model 1","Model 2","Model 3","Model 4","Model 5","Model 6"))  
 
-mod2<-extreure_HR(a="grup",x="DM_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Model 1")
+# Models de COX 
 
-mod3<-extreure_HR(a="grup",x="DM_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Model 2")
+taula_models_COX<-vector_ajustos %>% purrr::map_df(~
+                  extreure_HR(a="grup",x=.x,event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster),.id="Model")
 
-mod4<-extreure_HR(a="grup",x="DM_ajust3",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Model 3")
+# Models de Riscos Comepetitius FG
 
-# guardar resum models
-taula_models_COX<- mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) 
-
-# Model de riscos (dades, covariables)
-
-mod1<-Estima_HR_RCrisk_clusters(dades,"",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Unadjusted")
-
-mod2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 1")
-
-mod3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust2",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 2")
-
-mod4<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup",failcode = "Event",cencode = "End of follow-up") %>% mutate(adjust="Model 3")
+# llista de models
+taula_models_FG<-vector_ajustos %>% purrr::map_df(~ 
+        Estima_HR_RCrisk_clusters(dades,.x,a="grup",failcode = "Event",cencode = "End of follow-up"),.id="Model")
 
 # dades %>% select(grup,grup2)
 # printar models
-taula_models<-mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) %>% bind_rows(taula_models_COX)
+taula_models<-taula_models_FG %>% bind_rows(taula_models_COX)
   
+
+# extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Unadjusted")
+# Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
+
+
 
 ```
 
@@ -582,9 +603,9 @@ taula_models<-mod1 %>% bind_rows(mod2) %>% bind_rows(mod3) %>% bind_rows(mod4) %
 # - HR segons model complet (ajust3) per riscos competitius
 # - Incloure-ho en table 3
 
-mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup",failcode = "Event",cencode = "End of follow-up") 
-mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup2",failcode = "Event",cencode = "End of follow-up") 
-mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup3",failcode = "Event",cencode = "End of follow-up") 
+mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
+mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup2",failcode = "Event",cencode = "End of follow-up") 
+mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup3",failcode = "Event",cencode = "End of follow-up") 
 
 mom5.1 %>% 
   bind_rows(mom5.2) %>% bind_rows(mom5.3) %>%  select(-c(method,adjustedby)) %>% 
@@ -631,12 +652,12 @@ taula_models %>%  kable(digits = 3,caption = "TS1. HR de risk de TB segons difer
 
 forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
-               nivell = "adjust",factor1="method",label_Xvertical="Fit",
+               nivell = "Model",factor1="method",label_Xvertical="Fit",
                label_Favors="Favors Controls        Favors DM",color = T)
 
 forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
-               nivell = "method",factor1="adjust",label_Xvertical="Fit",
+               nivell = "method",factor1="Model",label_Xvertical="Fit",
                label_Favors="Favors Controls        Favors DM",color = T)
 
 
@@ -913,7 +934,7 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 
 ```{r, include=TRUE}
 
-modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust3",a="grup",failcode = "Event",cencode = "End of follow-up") 
+modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
 
 dadesmodel<-modelcomplet$resum_crrsc %>% 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
@@ -923,9 +944,13 @@ dadesmodel %>% select(-id) %>%
   kable(digits = 3) %>% kableExtra::kable_styling()
 
 
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="OR (95% CI)", intercept=1)+
+forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
   theme_minimal(base_size = 12)
 
+forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+  theme_minimal(base_size = 12) + 
+  scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) 
+  
 
 
 ```

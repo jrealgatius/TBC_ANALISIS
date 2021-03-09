@@ -84,6 +84,8 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode 
   # cov1="DM_ajust3"
   # a="grup"
   
+  gc()
+  
   if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
   
   nomscovariables<-colnames(stats::model.matrix(formula_vector(covariables,""),data = dt))[-1]
@@ -235,13 +237,14 @@ model_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode =
   # failcode = "Event"
   # cencode = "End of follow-up"
   # dt=dades
-  # cov1="DM_ajust3"
+  # cov1="DM_ajust6"
   # a="grup"
   
   if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
   
   # rename etiquetes per diferent valor 
   nousnoms<-etiquetar_taula(as_tibble(covariables),camp="value",taulavariables=conductor_variables,camp_descripcio= "Descripcio") %>% pull(value)
+  nousnoms<-paste0(nousnoms,".")
   dt<-dt %>% rename_at(vars(covariables),~nousnoms)
 
   nomscovariables<-colnames(stats::model.matrix(formula_vector(nousnoms,""),data = dt))[-1]
@@ -293,10 +296,11 @@ forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean=
   dadestemp <- dadesmodel %>% select(etiqueta=!!label,valor=!!mean,Linf=!!lower,Lsup=!!upper,id) %>% arrange(id)
   
   fp <- ggplot(data=dadestemp,aes(x=id, y=valor, ymin=Linf, ymax=Lsup)) +
+    geom_errorbar(size=0.6,width =0.4) +
     geom_pointrange() + 
     geom_hline(yintercept=intercept, lty=2) +  # add a dotted line at x=1 after flip
     coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab("Label") + ylab(label_X) +
+    xlab("Variable") + ylab(label_X) +
     scale_x_continuous(breaks=dadestemp %>% pull(id),labels=dadestemp %>% pull(etiqueta))
   
   fp

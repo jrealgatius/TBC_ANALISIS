@@ -41,14 +41,14 @@ rmarkdown::render("./codi/1_lectura_TBC.Rmd",params = list(metode=metode,cas_com
 rmarkdown::render("./codi/2_preparacio_TBC.Rmd",params = list(metode=metode))
 Generar_informe(metode)
 
-
+gc()
 ###########   Generar informe 
 metode="dinamica2"
 subtitul="Cohorte DINÁMICA: Controles sin reemplazo"
 rmarkdown::render("./codi/3_analisis_TBC.Rmd", 
                   output_file = paste0("informe_Cohort_Din",Sys.Date()),
                   output_dir = "codi/informes",
-                  params=list(metode=metode,subtitul=subtitul),
+                  params=list(metode=metode,subtitul=subtitul, test=FALSE),
                   envir = parent.frame() # Truc per que render dins funció no peti 
-  )
+                  )
 
