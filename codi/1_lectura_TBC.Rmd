@@ -560,15 +560,15 @@ if (params$metode=="PS" | params$metode=="estatica") {
 
 ```{r agregacions}
 dt_antecedents.agregada<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
-                      finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="grup")
+                      finestra.dies = c(-Inf,0),prefix="DG.",camp_agregador="grup")
 
 # Antecedents 2n nivell
 dt_antecedents.agregada2<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
-                                           finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="subgrup") 
+                                           finestra.dies = c(-Inf,0),prefix="DG.",camp_agregador="subgrup") 
 
 # Antecedents 3n nivell
 dt_antecedents.agregada3<-agregar_problemes(dt_psalut,bd.dindex =data_index_agregacio,dt.agregadors=CATALEG,
-                                          finestra.dies = c(-Inf,+1),prefix="DG.",camp_agregador="DM")
+                                          finestra.dies = c(-Inf,0),prefix="DG.",camp_agregador="DM")
 
 ## Actualitzar Diagnostic de DM també en funció dels farmacs antidiabètics
 dt_temp4<-
@@ -658,7 +658,6 @@ dt_visites.agregada <-
 
 ```{r}
 
-
 dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>% 
   left_join(dt_antecedents.agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_events.agregada,by=c("idp","dtindex")) %>% 
@@ -667,9 +666,6 @@ dt_total<-dt_demografiques %>% mutate(idp=CIP,dtindex=data) %>%
   left_join(dt_visites.agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_farmacs_agregada,by=c("idp","dtindex")) %>% 
   left_join(dt_antidiabetics,by="CIP")
-
-
-
 
 
 # Ojo que avegades no quadra amb dtindex de setgruprisk 
