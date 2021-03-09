@@ -16,7 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
-  test: TRUE
+  test: FALSE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -369,10 +369,20 @@ Matching may be useful in non-randomized studies when the aim is to estimate a
 
 ```{r flow_filtres,include=T}
 
-
+diagramaFlowchart2G( pob_lab=c("Població inicial"),
+  pob_lab1=c("Diabetics","Potencials controls"),
+  pob_lab2=c("Grup DM","Grup Control"),
+  pob=c(85919),
+  pob1=c(10065,8038),
+  exc1=c(10065-8054,14,1),
+  exc_lab1=c('No matching','Age','Exitus'),
+  pob2=c(20634,8041),
+  exc2=c(20634-8054,14,0),
+  exc_lab2=c('No matching','Age','Exitus'),
+  colors=c('white','grey'),
+  forma=c('cercle','cercle') )  
 
 criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
-
 
 
 ```
@@ -569,8 +579,8 @@ descrTable(surv_tbc~grup3,data=dades,show.ratio = T, byrow = T ,surv = T) %>% ex
 if (params$metode=="dinamica2") cluster="case.id" else cluster=""
 
 # Ajustos
-vector_ajustos<-c("","DM_ajust","DM_ajust2","DM_ajust3","DM_ajust4","DM_ajust5","DM_ajust6") %>% 
-  stats::setNames(c("Unadjust","Model 1","Model 2","Model 3","Model 4","Model 5","Model 6"))  
+vector_ajustos<-c("","DM_ajust","DM_ajust2","DM_ajust3","DM_ajust4") %>% 
+  stats::setNames(c("Unadjust","Model 1","Model 2","Model 3","Model 4"))  
 
 # Models de COX 
 
@@ -586,7 +596,9 @@ taula_models_FG<-vector_ajustos %>% purrr::map_df(~
 # dades %>% select(grup,grup2)
 # printar models
 taula_models<-taula_models_FG %>% bind_rows(taula_models_COX)
-  
+
+
+
 
 # extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Unadjusted")
 # Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
@@ -603,9 +615,9 @@ taula_models<-taula_models_FG %>% bind_rows(taula_models_COX)
 # - HR segons model complet (ajust3) per riscos competitius
 # - Incloure-ho en table 3
 
-mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
-mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup2",failcode = "Event",cencode = "End of follow-up") 
-mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup3",failcode = "Event",cencode = "End of follow-up") 
+mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup",failcode = "Event",cencode = "End of follow-up") 
+mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup2",failcode = "Event",cencode = "End of follow-up") 
+mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup3",failcode = "Event",cencode = "End of follow-up") 
 
 mom5.1 %>% 
   bind_rows(mom5.2) %>% bind_rows(mom5.3) %>%  select(-c(method,adjustedby)) %>% 
@@ -934,7 +946,7 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 
 ```{r, include=TRUE}
 
-modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
+modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup",failcode = "Event",cencode = "End of follow-up") 
 
 dadesmodel<-modelcomplet$resum_crrsc %>% 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 

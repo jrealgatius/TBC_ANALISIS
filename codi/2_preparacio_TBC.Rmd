@@ -41,6 +41,7 @@ if (params$metode=="PS") dir_output<-"dades/output_PS"
 load(here::here(dir_output,"output2.Rdata"))
 
 
+
 ```
 
 # Preparació I
@@ -52,8 +53,20 @@ load(here::here(dir_output,"output2.Rdata"))
 # temp<-dt_ecap %>% mutate(grup2=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
 # table(temp$grup2)
 
+table(dt_ecap$grup)
+
+ñ<-dt_ecap %>% select(CIP,grup,dtindex,DG.DM) %>% filter(DG.DM>ymd(dtindex) & grup==1)
+
+
+table(dt_ecap$grup)
+
+
 # Ojo hi ha desquadre de dtindex de setgruprisk
 dt_ecap<-dt_ecap %>% mutate(grup=ifelse(DG.DM<=ymd(dtindex) & !is.na(DG.DM),1,0))
+table(dt_ecap$grup)
+
+dt_ecap %>% select(CIP,grup,dtindex,DG.DM) %>% filter(DG.DM>ymd(dtindex) & !is.na(DG.DM))
+
 
 # VERIFICAR FARMACS ANTIDIABETICS 
 dt_ecap %>% filter(grup==0 & !is.na(FP.INSU)) %>% select(CIP,grup,DET_TB, FP.INSU,DG.DM,dtindex,data1r_Antidiabetic)
