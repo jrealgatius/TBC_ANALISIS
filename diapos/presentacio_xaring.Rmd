@@ -1,0 +1,193 @@
+---
+title: "La diabetes como factor de riesgo en la enfermedad tuberculosa"
+subtitle: "Estudio poblacional en un área de elevada prevalencia de tuberculosis: Metodologia"
+author: "Violeta Antonio; Jordi Real; Josep Franch-Nadal; Antonio Moreno ; Àngels Orcau Palau; Joan A Caylà"
+institute: "IDIAP Jordi Gol"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+layout: true
+background-image: url(logoDAP_Cat.png)
+background-position: 95% 0% 
+background-size: 30%
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = F)
+
+library(dplyr)
+# source("funcions_TBC.R")
+
+# # CArrego funcions -------------------
+# link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+# devtools::source_url(link_source)
+
+
+# "https://www.aspb.cat/wp-content/themes/aspb/images/agencia-salut-publica.png"
+
+# "https://www.idiapjgol.org/images/logo.png"
+
+```
+
+```{r carregar_dades, include=FALSE}
+
+# dir_output<-"dades/output_dinamic2"
+# 
+# load(here::here(dir_output,"output4.Rdata"))
+# dt_ecap<-netejar.noms.variables(dt_ecap) %>% as_tibble()
+# dades<-dt_ecap %>% netejar_espais()
+
+# pagedown::chrome_print("presentacio_xaring.html")
+
+```
+
+
+---
+class: left, middle
+
+
+![](logoIDIAP.png)
+
+
+Estudio longitudinal retrospectivo de cohortes apareadas en un distrito de Barcelona con una conocida alta incidencia de TB utilizando bases de datos poblacionales (**Real World Data**).
+
+# Guión
+
+* Diseño
+* Fuentes de datos
+* Criterios de inclusión
+* Procedimiento de muestreo
+* Análisis
+* Limitaciones
+
+
+---
+
+### Diseño
+
+Logitudinal retrospectivo de cohortes apareadas basado en registros clínicos (**Real World Data**)
+
+
+### Fuentes de datos
+
+
+ Fuente   |  Información      |
+----------| ---------------------
+E-Cap     | Población a riesgo grupos de estudio, características sociodemográficas, y clínicas
+ASPB      | Casos de tuberculosis acontecidos durante el seguimiento
+
+
+* Vinculación de ambos registros y con ellos se diseño una cohorte retrospectiva abierta. 
+
+* Periodo de observación fue desde Enero del 2007 hasta diciembre de 2018. 
+
+---
+
+## Criterios de inclusión
+
+### Población a Riesgo
+
+Variable   |  Criterio     
+-----------|-------------
+Edad       | > 18 años    
+Área       | Ciutat Vella de Barcelona 
+Período    | Enero 2007 - Diciembre 2016 
+Grupos     | Diabeticos
+           | Controles
+
+
+Diabetis prevalente (Enero de 2007) o incidente diagnosticada durante el periodo de reclutamiento
+Selección de controles de igual edad, sexo, en fecha
+  
+---
+class: center,middle
+## Procedimiento de muestreo (I)
+
+Método de reclutamiento: densidad de incidencia
+
+![](../figures/Figure1_esquema.png) 
+
+
+
+
+
+
+
+
+
+---
+class: center,middle
+
+## Procedimiento de muestreo (II)
+
+Seguimiento de sujetos
+
+![](../figures/Figure2_esquema.png) 
+---
+
+class: center,middle
+
+## Procedimiento de muestreo (III)
+
+### Flow-Chart
+
+```{r, include=TRUE, out.width = "300px"}
+
+knitr::include_graphics("../figures/flow_chart1.png")
+
+# ![](../figures/flow_chart1.png)
+
+```
+
+
+
+---
+
+## Análisis 
+
+- Estimación de incidencia
+- Estimación Hazard ratios no ajustados & ajustados
+  
+  - Ajuste por: Origen, frecuentación, variables clínicas (BMI, PAS/PAD), factores de riesgo (tabaco/alcohol)
+  
+- Modelo de riesgos competitivos Fine & Grey por clusters 
+   - (crrSC packages (Competing Risks Regression for Clustered Data R package)) 
+
+- Modelo clusters & Riesgos de cox condicionales (survival::coxph() package)
+- Análisis de sensibilidad distintos modelos (4 modelos)
+
+- R (versió)
+
+---
+
+## Análisis 
+
+![](../figures/Figure3_Forest1.png)
+
+
+---
+
+## Limitaciones / Fortalezas
+
+
+
+
+Limitación                   |  Comentario     
+-----------------------------|-------------
+Infraregistro de outcome     | Gran base de datos poblacional    
+Infraregistro de exposición  | Registro clínico de AP    
+Missings en covariables      | Categorización + Cat missing
+Sesgo diferencial            | Ajuste por frequentación  
+Confusión residual           | Análisis de sensibilidad / Ajuste
+Tamaño muestral              | Otras hipótesis
+
+--
+
