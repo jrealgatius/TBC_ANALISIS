@@ -16,7 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
-  test: FALSE
+  test: TRUE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -369,20 +369,33 @@ Matching may be useful in non-randomized studies when the aim is to estimate a
 
 ```{r flow_filtres,include=T}
 
-diagramaFlowchart2G( pob_lab=c("Població inicial"),
-  pob_lab1=c("Diabetics","Potencials controls"),
-  pob_lab2=c("Grup DM","Grup Control"),
+flow1<-
+  diagramaFlowchart2G( pob_lab=c("Population"),
+  pob_lab1=c("Diabetes patients","Diabetes group"),
+  pob_lab2=c("Control population","Control group"),
   pob=c(85919),
   pob1=c(10065,8038),
   exc1=c(10065-8054,14,1),
-  exc_lab1=c('No matching','Age','Exitus'),
+  exc_lab1=c('Not matching','Age<18','Exitus'),
   pob2=c(20634,8041),
   exc2=c(20634-8054,14,0),
-  exc_lab2=c('No matching','Age','Exitus'),
+  exc_lab2=c('No matching','Age<18','Exitus'),
   colors=c('white','grey'),
-  forma=c('cercle','cercle') )  
+  forma=c('ellipse','box') )  
 
-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
+flow1
+
+flow1 %>% DiagrammeRsvg::export_svg() %>% charToRaw() %>% rsvg::rsvg() %>% 
+  png::writePNG(here::here("figures","flow_chart1.png"))
+
+
+
+flow2<-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
+
+flow2
+
+flow2 %>% DiagrammeRsvg::export_svg() %>% charToRaw() %>% rsvg::rsvg() %>% 
+  png::writePNG(here::here("figures","flow_chart2.png"))
 
 
 ```
@@ -414,8 +427,10 @@ dades<-dades %>% mutate(
 # Calculo estatus
 dades<-dades %>% mutate(status=if_else(event_tbc==1,"Event",censura_tipo))
 
-llavor<-200
 
+# Preparo dades per plot
+
+llavor<-200
 dt_temp<-dades %>% filter(dtindex>20070101) %>% 
   transmute(CIP,id=case.id,Grupo=grup,dtindex=lubridate::ymd(dtindex),datafi=datafi,situacio,
             data0=lubridate::ymd(20070101),Sexo=sexe,dNaixement,
@@ -424,25 +439,45 @@ dt_temp<-dades %>% filter(dtindex>20070101) %>%
   mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>% 
   mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
 
-pp<-dt_temp %>% Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat")
+pp<-dt_temp %>% 
+  Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
+  labs(title="Figura 1. Sampling and follow-up scheme",
+       subtitle = "5 pairs of individuals by age and sex",
+       color="Group:",
+       shape="") +
+  ylab("Subjects") +
+  xlab("Time")
 
 pp
 
+grDevices::png(here::here("figures","Figure1_esquema.png"))
+
+pp
+
+dev.off()
+
+
+```
+
+
+```{r esquema2, include=TRUE}
+
+
 # Truncamiento 
 # Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
-pp + 
+pp<- pp + 
   geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
-  theme(legend.position="right")+
   annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
-  ylab("Subjects") +
-  xlab("Time")+
   labs(title="Figura 1. Sampling and follow-up scheme",
        subtitle = "5 pairs of individuals by age and sex",
        color="Group:",
        shape="")
 
+grDevices::png(here::here("figures","Figure2_esquema.png"))
+pp
+dev.off()
 
 ```
 
@@ -637,7 +672,11 @@ mom5.1 %>%
 
 pp<-plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up")
 
-pp
+pp + scale_x_continuous(breaks = c(seq(1,3650,730)))
+
+grDevices::png(here::here("figures","Figure_CI.png"))
+pp + scale_x_continuous(breaks = c(seq(1,3650,730)))
+dev.off()
 
 
 ```
@@ -662,16 +701,27 @@ taula_models %>%  kable(digits = 3,caption = "TS1. HR de risk de TB segons difer
 
 ```{r,include=T}
 
+
+
 forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
                nivell = "Model",factor1="method",label_Xvertical="Fit",
                label_Favors="Favors Controls        Favors DM",color = T)
 
-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
+
+
+pp<-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
                nivell = "method",factor1="Model",label_Xvertical="Fit",
                label_Favors="Favors Controls        Favors DM",color = T)
 
+pp
+
+grDevices::png(here::here("figures","Figure3_Forest1.png"))
+
+pp
+
+grDevices::dev.off()
 
 ```
 
@@ -959,10 +1009,16 @@ dadesmodel %>% select(-id) %>%
 forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
   theme_minimal(base_size = 12)
 
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
   theme_minimal(base_size = 12) + 
-  scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) 
+  scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) +
+  labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")
   
+
+grDevices::png(here::here("figures","Figure_Forest2.png"))
+pp
+dev.off()
+
 
 
 ```

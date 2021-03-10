@@ -147,7 +147,7 @@ plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "E
 forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Linf",upper="Lsup",label_X="OR (95% CI)",
                          intercept=1,
                          nivell="outcome", factor1="type",color=F, label_Xvertical="Method",nolabels=TRUE,
-                         title = "Forest plot of hazard hatios and confidence interval (95%CI)",
+                         title = "Forest plot of hazard ratios by method",
                          label_Favors="Favors Controls        Favors DM") {
   
   # dadesmodel=taula_models_COX
