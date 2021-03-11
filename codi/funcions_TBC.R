@@ -44,11 +44,13 @@ Esquema_ggplot<-function(dt=dt_temp,datainicial="data",datafinal="datafi",id="id
       days_duration=lubridate::interval(dia0,diaf) %>% lubridate::as.duration()/lubridate::ddays()
     )
   
+  num_cips<-dt$CIP %>% length()
+  
   # Grafico el tema 
   figura<-ggplot(dt,aes(x =dia0,y =!!id)) +
     geom_segment(aes(x =diaf, xend=dia0, y =!!id, yend = !!id,color=!!grup_color)) +
     geom_point(aes(diaf, !!id,color=!!grup_color),size=4,shape=18) + 
-    geom_linerange(aes(x=diaf,ymax=10,ymin=0),linetype="dashed") + 
+    geom_linerange(aes(x=diaf,ymax=num_cips,ymin=0),linetype="dashed") + 
     xlim(porca1,porca2)+
     scale_y_continuous(breaks=dt %>% pull(num) ,labels=dt %>% pull(lab_y))+
     geom_rect(aes(xmin = lubridate::ymd(20070101), xmax = lubridate::ymd(20161231), ymin = min(num), ymax = max(num)),colour=NA,alpha=0.01)+
