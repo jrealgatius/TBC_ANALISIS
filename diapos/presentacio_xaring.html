@@ -3,7 +3,7 @@
   <head>
     <title>La diabetes como factor de riesgo en la enfermedad tuberculosa</title>
     <meta charset="utf-8" />
-    <meta name="author" content="Antonio-Arques, Violeta; Real Gatius, Jordi; Franch-Nadal, Josep; Moreno Martinez, Antonio; Orcau Palau, Àngels; Caylà, Joan A" />
+    <meta name="author" content="Violeta Antonio; Jordi Real; Josep Franch-Nadal; Antonio Moreno ; Àngels Orcau Palau; Joan A Caylà" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/remark-css/default.css" rel="stylesheet" />
     <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
@@ -14,9 +14,9 @@ class: center, middle, inverse, title-slide
 
 # La diabetes como factor de riesgo en la enfermedad tuberculosa
 ## Estudio poblacional en un área de elevada prevalencia de tuberculosis: Metodologia
-### Antonio-Arques, Violeta; Real Gatius, Jordi; Franch-Nadal, Josep; Moreno Martinez, Antonio; Orcau Palau, Àngels; Caylà, Joan A
+### Violeta Antonio; Jordi Real; Josep Franch-Nadal; Antonio Moreno ; Àngels Orcau Palau; Joan A Caylà
 ### IDIAP Jordi Gol
-### 10 marzo, 2021
+### 11 marzo, 2021
 
 ---
 
@@ -66,10 +66,14 @@ Logitudinal retrospectivo de cohortes apareadas basado en registros clínicos (*
 E-Cap     | Población a riesgo grupos de estudio, características sociodemográficas, y clínicas
 ASPB      | Casos de tuberculosis acontecidos durante el seguimiento
 
+--
+* Vinculación de registros
 
-* Vinculación de ambos registros y con ellos se diseño una cohorte retrospectiva abierta. 
+--
+* Diseño una cohorte retrospectiva abierta. 
 
-* Periodo de observación fue desde Enero del 2007 hasta diciembre de 2018. 
+--
+* Periodo de observación: 01/2007- 12/2018. 
 
 ---
 
@@ -81,12 +85,12 @@ Variable   |  Criterio
 -----------|-------------
 Edad       | &gt; 18 años    
 Área       | Ciutat Vella de Barcelona 
-Período    | Enero 2007 - Diciembre 2016 
-Grupos     | Diabeticos
+Período    | 01/2007 - 12/2016 
+Grupos:     | Diabeticos
            | Controles
-
-
-Diabetis prevalente (Enero de 2007) o incidente diagnosticada durante el periodo de reclutamiento
+--
+DM prevalentes (01/2007) + DM incidente durante reclutamiento
+--
 Selección de controles de igual edad, sexo, en fecha
   
 ---
@@ -121,7 +125,17 @@ class: center,middle
 
 ### Flow-Chart
 
-&lt;img src="../figures/flow_chart1.png" width="300px" /&gt;
+.pull-left[
+![](../figures/flow_chart1.png) 
+]
+
+.pull-right[
+
+![](../figures/flow_chart2.png) 
+
+]
+
+
 
 
 
@@ -129,18 +143,32 @@ class: center,middle
 
 ## Análisis 
 
-- Estimación de incidencia
-- Estimación Hazard ratios no ajustados &amp; ajustados
-  
-  - Ajuste por: Origen, frecuentación, variables clínicas (BMI, PAS/PAD), factores de riesgo (tabaco/alcohol)
-  
-- Modelo de riesgos competitivos Fine &amp; Grey por clusters 
-   - (crrSC packages (Competing Risks Regression for Clustered Data R package)) 
 
-- Modelo clusters &amp; Riesgos de cox condicionales (survival::coxph() package)
-- Análisis de sensibilidad distintos modelos (4 modelos)
+* Incidencia segun tiempo a riesgo (IC95%). Paquete de R: epiR, método exacto
+--
 
-- R (versió)
+* Hazard ratios no ajustados, ajustados según:
+  - Origen, frecuentación, variables clínicas (BMI, PAS/PAD), factores de riesgo (tabaco/alcohol)
+
+--
+
+* Modelo de riesgos competitivos Fine &amp; Grey por clusters. Paquete de R: crrSC (ver 1.1) 
+
+--
+
+* Modelo clusters &amp; Riesgos de cox condicionales. Paquete de R: survival
+--
+
+* Análisis de sensibilidad varios modelos 
+
+--
+
+* R version 3.6.3 (2020)
+
+--
+
+* Código abierto disponible en github: https://github.com/jrealgatius/TBC_ANALISIS
+
 
 ---
 
@@ -162,8 +190,9 @@ Infraregistro de outcome     | Gran base de datos poblacional
 Infraregistro de exposición  | Registro clínico de AP    
 Missings en covariables      | Categorización + Cat missing
 Sesgo diferencial            | Ajuste por frequentación  
-Confusión residual           | Analisis de sensibilidad / Ajuste
-Tamaño muestral              | Otras hipotesis
+Confusión residual           | Análisis de sensibilidad / Ajuste
+Tamaño muestral              | Otras hipótesis
+
 
 --
 

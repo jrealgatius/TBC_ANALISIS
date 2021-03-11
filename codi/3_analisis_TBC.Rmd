@@ -365,6 +365,24 @@ Matching may be useful in non-randomized studies when the aim is to estimate a
 1. Cálculo de incidéncia de TBC global y por grupos segun casos incidentes de TBC detectados y usando como denominador las personas-tiempo seguidas.  
 2. Para analizar el riesgo de TBC associada a la Diabetis y otros factores associados se han usado modelos de regressión de COX con variables dependientes del tiempo. La cohorte dinámica se ha Modelos de COX usados han sido por clusters. The cluster term is used to compute a robust variance for the model. The term + cluster(id) where each value of id is unique is equivalent to specifying the robust=TRUE argument. If the id variable is not unique, it is assumed that it identifies clusters of correlated observations.
 
+
+```{r exclusions_parells}
+# exclusions per parells a posteriori per criteris d'edat o exitus 
+
+
+if (params$metode=="dinamica2" | params$metode=="dinamica") {
+dades<-dades %>% group_by(case.id) %>% 
+  mutate(exclusions_parells=sum(filtre_exitus==1 | age<18 | is.na(age))) %>% 
+  mutate(PS=ifelse(exclusions_parells>0,0,PS)) %>% 
+  ungroup()
+}  
+
+
+
+```
+
+
+
 ## Flowchart
 
 ```{r flow_filtres,include=T}
@@ -374,20 +392,20 @@ flow1<-
   pob_lab1=c("Diabetes patients","Diabetes group"),
   pob_lab2=c("Control population","Control group"),
   pob=c(85919),
-  pob1=c(10065,8038),
-  exc1=c(10065-8054,14,1),
-  exc_lab1=c('Not matching','Age<18','Exitus'),
-  pob2=c(20634,8041),
-  exc2=c(20634-8054,14,0),
-  exc_lab2=c('No matching','Age<18','Exitus'),
+  pob1=c(10065,8004),
+  exc1=c(10065-8054),
+  exc_lab1=c('Not matching'),
+  pob2=c(85919-10065,8004),
+  exc2=c(85919-10065-8004),
+  exc_lab2=c('No matching'),
   colors=c('white','grey'),
   forma=c('ellipse','box') )  
 
 flow1
 
+
 flow1 %>% DiagrammeRsvg::export_svg() %>% charToRaw() %>% rsvg::rsvg() %>% 
   png::writePNG(here::here("figures","flow_chart1.png"))
-
 
 
 flow2<-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
@@ -413,7 +431,7 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 
 ## Esquema de reclutamiento del estudio Diabeticos incidentes
 
-```{r esquema, include=TRUE}
+```{r calcul_status, include=TRUE}
 # Estatus competiting risk
 
 # Calculo censura_final (event, final_seguiment,exitus, canvigrup)
@@ -423,21 +441,38 @@ dades<-dades %>% mutate(
                      datafi<lubridate::ymd(20181231) & exitus==1~"Exitus",
                      datafi<lubridate::ymd(20181231) & exitus==0 ~"Swich group"))
 
-
 # Calculo estatus
 dades<-dades %>% mutate(status=if_else(event_tbc==1,"Event",censura_tipo))
+```
 
 
+```{r esquema, include=TRUE}
+llavor<-224
 # Preparo dades per plot
-
-llavor<-200
 dt_temp<-dades %>% filter(dtindex>20070101) %>% 
   transmute(CIP,id=case.id,Grupo=grup,dtindex=lubridate::ymd(dtindex),datafi=datafi,situacio,
             data0=lubridate::ymd(20070101),Sexo=sexe,dNaixement,
             lab_SexEdat=stringr::str_c(Sexo,lubridate::year(dNaixement)-lubridate::year(dtindex)),
-            EV.TBC_cat,event_tbc,censura_tipo) %>% 
-  mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>% 
+            EV.TBC_cat,event_tbc,censura_tipo) 
+# Trio un parell per tipus de censura (Swich_group,Exitus,End of follow-up)
+dt_temp1 <- dt_temp %>% 
+  group_by(id) %>% filter(sum(censura_tipo=="End of follow-up")>0) %>% ungroup(id) %>% 
+  mostreig_ids("id",2,llavor)
+
+dt_temp2 <- dt_temp %>% 
+  group_by(id) %>% filter(sum(censura_tipo=="Swich group")>0) %>% ungroup(id) %>% 
+  mostreig_ids("id",2,llavor)
+
+dt_temp3 <- dt_temp %>% group_by(id) %>% filter(sum(censura_tipo=="Exitus")>0) %>% ungroup(id) %>% 
+  mostreig_ids("id",1,llavor)
+
+dt_temp<-dt_temp1 %>% bind_rows(dt_temp2) %>% bind_rows(dt_temp3) %>% arrange(desc(dtindex)) %>% 
   mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
+
+# Mostrejo
+# llavor<-201
+# dt_temp <- dt_temp %>% mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>% 
+#   mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
 
 pp<-dt_temp %>% 
   Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
@@ -456,12 +491,10 @@ pp
 
 dev.off()
 
-
 ```
 
 
 ```{r esquema2, include=TRUE}
-
 
 # Truncamiento 
 # Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
@@ -474,6 +507,9 @@ pp<- pp +
        subtitle = "5 pairs of individuals by age and sex",
        color="Group:",
        shape="")
+
+
+pp
 
 grDevices::png(here::here("figures","Figure2_esquema.png"))
 pp
@@ -796,18 +832,18 @@ pp +
 ```
 
 
-```{r figura_COX, include=F, fig.asp=1, results="asis"}
+```{r figura_COX, include=F, fig.asp=1, results="asis", eval=FALSE}
 
 ## Gràfica estimada del Model de cox
 
-if (params$metode=="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age+cluster(case.id), data=dades) 
+if (params$metode=="dinamica2") res.cox<-coxph(surv_tbc ~ grup+cluster(case.id), data=dades) 
 if (params$metode!="dinamica2") res.cox<-coxph(surv_tbc ~ grup+sexe+age, data=dades) 
 
 res.cox %>% sjPlot::tab_model(show.p = FALSE)
 
-ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" ,  fun="event",
-                 title="Fitted Cox Model to TB detection in patient with or without DM")
-
+# survminer::ggadjustedcurves(res.cox, data=dades,method = "average", variable = "grup" ,  fun="event",
+#                  title="Fitted Cox Model to TB detection in patient with or without DM")
+# 
 
 
 ```
