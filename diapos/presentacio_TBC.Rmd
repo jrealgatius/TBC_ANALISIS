@@ -219,9 +219,9 @@ knitr::include_graphics("../figures/flow_chart1.png")
 
 .pull-left[
 
-* Infraregistro principales
+* Infraregistro
 
-* Missings en covariables
+* Missings covariables
 
 * Sesgo diferencial
 
