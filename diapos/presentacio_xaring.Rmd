@@ -14,9 +14,9 @@ output:
 ---
 
 layout: true
-background-image: url(logoDAP_Cat.png)
+background-image: url(LogoDAP_Cat.jpg)
 background-position: 95% 0% 
-background-size: 30%
+background-size: 20%
 
 
 ```{r setup, include=FALSE}
@@ -140,21 +140,33 @@ Seguimiento de sujetos
 ![](../figures/Figure2_esquema.png) 
 ---
 
+## Procedimiento de muestreo (II)
+
+Método de reclutamiento y seguimiento. 
+
+**Ejemplo cambio de grupo**
+
+.pull-left[
+
+![](../figures/Figure1.2_esquema.png) 
+
+]
+
+.pull-right[
+
+![](../figures/Figure2.2_esquema.png) 
+
+]
+
+---
 class: center,middle
 
 ## Procedimiento de muestreo (III)
 
 ### Flow-Chart
 
-.pull-left[
 ![](../figures/flow_chart1.png) 
-]
 
-.pull-right[
-
-![](../figures/flow_chart2.png) 
-
-]
 
 ```{r, include=TRUE,eval=FALSE, out.width = "300px"}
 
@@ -198,6 +210,7 @@ knitr::include_graphics("../figures/flow_chart1.png")
 
 
 ---
+class: center,middle
 
 ## Análisis 
 

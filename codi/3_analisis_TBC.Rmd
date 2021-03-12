@@ -16,7 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
-  test: FALSE
+  test: TRUE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -169,6 +169,7 @@ if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
 
+if (params$test) dir_figures<-"figures/test" else dir_figures<-"figures"
 
 source("funcions_TBC.R")
 
@@ -489,7 +490,7 @@ pp<-dt_temp %>%
 
 pp
 
-grDevices::png(here::here("figures","Figure1_esquema.png"))
+grDevices::png(here::here(dir_figures,"Figure1_esquema.png"))
 
 pp
 
@@ -515,7 +516,7 @@ pp<- pp +
 
 pp
 
-grDevices::png(here::here("figures","Figure2_esquema.png"))
+grDevices::png(here::here(dir_figures,"Figure2_esquema.png"))
 pp
 dev.off()
 
@@ -523,13 +524,7 @@ dev.off()
 
 ```{r}
 
-# dt_temp %>% group_by(id) %>% filter(sum(censura_tipo=="Swich group")>0) %>% ungroup(id) 
-# 
-# c("MAFI152062900","LOGA039032200")
-# 
-# dt_temp %>% group_by(id) %>% filter(CIP %in% c("MAFI152062900","LOGA039032200")) %>% ungroup()
-# 
-# dades %>% filter(CIP %in% c("MAFI152062900","LOGA039032200"))
+## Preparo dades
 
 dt_temp<-dades %>% 
   group_by(CIP) %>% mutate(repe=n()) %>% ungroup() %>% 
@@ -541,16 +536,13 @@ dt_temp<-dt_temp %>%
             lab_SexEdat=stringr::str_c(Sexo,lubridate::year(dNaixement)-lubridate::year(dtindex)),
             EV.TBC_cat,event_tbc,censura_tipo) 
 
-# # Mostrejo
-# llavor<-201
-# dt_temp <- dt_temp %>% 
-#   mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>%
-#   mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
-
 set.seed(123)
-# ids<-dt_temp %>% pull(id) %>% unique() %>% sample (5)
 
-ids<-c("155","5698")
+# Selecciono casos
+
+if (params$test) ids<-dt_temp %>% pull(id) %>% unique () %>% head(2) else ids<-c("155","5698")
+
+
 
 dt_temp<-dt_temp %>% arrange(desc(dtindex)) %>% 
   filter(id %in% ids) %>% 
@@ -560,26 +552,36 @@ dt_temp<-dt_temp %>% arrange(desc(dtindex)) %>%
 
 pp<-dt_temp %>% 
   Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
-  labs(title="Figura 1. Sampling and follow-up scheme",
+  labs(title="Figura 3. Sampling and follow-up scheme",
        subtitle = "2 pairs of individuals by age and sex",
        color="Group:",
        shape="") +
   ylab("Subjects") +
   xlab("Time") 
-  
+
 
 pp
 
-pp + 
+grDevices::png(here::here(dir_figures,"Figure1.2_esquema.png"))
+pp
+dev.off()  
+
+
+
+pp<-pp + 
   geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
   annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
-  labs(title="Figura 3. Sampling and follow-up scheme",
+  labs(title="Figura 4. Sampling and follow-up scheme",
        subtitle = "2 pairs of individuals by age and sex",
        color="Group:",
        shape="")
 
+pp
+grDevices::png(here::here(dir_figures,"Figure2.2_esquema.png"))
+pp
+dev.off()  
 
 
 ```
