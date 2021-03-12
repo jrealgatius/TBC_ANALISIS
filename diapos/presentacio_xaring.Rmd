@@ -54,15 +54,14 @@ library(dplyr)
 
 
 ---
-class: left, middle
+class: left,middle
 
 
 ![](logoIDIAP.png)
 
 
-Estudio longitudinal retrospectivo de cohortes apareadas en un distrito de Barcelona con una conocida alta incidencia de TB utilizando bases de datos poblacionales (**Real World Data**).
 
-# Guión
+## Guión
 
 * Diseño
 * Fuentes de datos
@@ -111,8 +110,10 @@ Grupos:     | Diabeticos
            | Controles
 --
 DM prevalentes (01/2007) + DM incidente durante reclutamiento
+
 --
-Selección de controles de igual edad, sexo, en fecha
+
+Selección de controles de igual edad, sexo, en fecha inclusión
   
 ---
 class: center,middle
@@ -135,10 +136,11 @@ class: center,middle
 
 ## Procedimiento de muestreo (II)
 
-Seguimiento de sujetos
+Seguimiento de sujetos / tiempo a riesgo
 
 ![](../figures/Figure2_esquema.png) 
 ---
+class: center,middle
 
 ## Procedimiento de muestreo (II)
 
@@ -183,26 +185,28 @@ knitr::include_graphics("../figures/flow_chart1.png")
 ## Análisis 
 
 
-* Incidencia segun tiempo a riesgo (IC95%). Paquete de R: epiR, método exacto
---
-
-* Hazard ratios no ajustados, ajustados según:
-  - Origen, frecuentación, variables clínicas (BMI, PAS/PAD), factores de riesgo (tabaco/alcohol)
+&check; Incidencia segun tiempo a riesgo (IC95%)
 
 --
 
-* Modelo de riesgos competitivos Fine & Grey por clusters. Paquete de R: crrSC (ver 1.1) 
+&check; Hazard ratios no ajustados, ajustados (Origen, frecuentación factores de riesgo)
 
 --
 
-* Modelo clusters & Riesgos de cox condicionales. Paquete de R: survival
---
-
-* Análisis de sensibilidad varios modelos 
+&check; Modelo de riesgos competitivos Fine & Grey por clusters. Paquete de R: crrSC (ver 1.1) 
 
 --
 
-* R version 3.6.3 (2020)
+&check; Modelo clusters & Riesgos de cox condicionales. Paquete de R: survival
+
+--
+
+&check; Análisis de sensibilidad varios modelos
+
+
+--
+
+&check; R version 3.6.3 (2020), Paquetes de R: epiR, crrSC, survival
 
 --
 
@@ -210,28 +214,38 @@ knitr::include_graphics("../figures/flow_chart1.png")
 
 
 ---
-class: center,middle
-
-## Análisis 
-
-![](../figures/Figure3_Forest1.png)
-
-
----
 
 ## Limitaciones / Fortalezas
 
+.pull-left[
+
+* Infraregistro principales
+
+* Missings en covariables
+
+* Sesgo diferencial
+
+* Confusión residual
+
+* Tamaño muestral
+
+]
+
+.pull-right[
+
+ Base de datos poblacionales
+
+ Categorización + Cat missing
+
+ Ajuste por frequentación
+
+ Análisis de sensibilidad / Ajuste
+
+ Otras hipótesis
 
 
+]
 
-Limitación                   |  Comentario     
------------------------------|-------------
-Infraregistro de outcome     | Gran base de datos poblacional    
-Infraregistro de exposición  | Registro clínico de AP    
-Missings en covariables      | Categorización + Cat missing
-Sesgo diferencial            | Ajuste por frequentación  
-Confusión residual           | Análisis de sensibilidad / Ajuste
-Tamaño muestral              | Otras hipótesis
 
 
 --
