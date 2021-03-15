@@ -1118,8 +1118,10 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup",failcode = "Event",cencode = "End of follow-up") 
 
 dadesmodel<-modelcomplet$resum_crrsc %>% 
+  filter(!stringr::str_ends(var,"None")) %>%  # Eliminar categoria None 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
-  dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value')
+  dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value') 
+  
 
 dadesmodel %>% select(-id) %>% 
   kable(digits = 3) %>% kableExtra::kable_styling()
@@ -1161,6 +1163,7 @@ dades<-dades %>% mutate(grup4=case_when(grup2=="DM1" & grup3=="DM Incident"~"Inc
 modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup4",failcode = "Event",cencode = "End of follow-up") 
 
 dadesmodel<-modelcomplet$resum_crrsc %>% 
+  filter(!stringr::str_ends(var,"None")) %>%  # Eliminar categoria None 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
   dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value')
 
