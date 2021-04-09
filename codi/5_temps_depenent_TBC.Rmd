@@ -1,0 +1,544 @@
+---
+author: "Ramó Puig, Elena Navas i Jordi Real"
+website: "https://github.com/USR-DAPCAT/"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+
+output:
+ html_document:
+   df_print: paged
+   toc: true
+   toc_float: true
+   fig_caption: true
+   css: logos_css/usr_styles.css
+   pdf_document: default
+   word_document: default
+
+params:
+  metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
+  subtitul: ""
+  test: TRUE
+
+title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
+subtitle: "`r params$subtitul`"
+
+---
+  
+  
+&nbsp;
+<script>
+  $(document).ready(function() {
+    $head = $('#header');
+    $head.prepend('<img src=\"https://www.idiapjgol.org/images/logo.png\" style=\"float: right ;width: 130px;\"/>')
+    $head.prepend('<img src=\"https://avatars2.githubusercontent.com/u/57066591?s=200&v=4\" style=\"margin-left:25% ;width: 80px;\"/>')
+    $head.prepend('<img src=\"logos_css/logoDAP_Cat.png\" style=\"float: left:1;width: 185px;\"/>')
+  });
+</script>
+  
+  
+  <div class="watermark">DRAFT</div>
+  
+  ****
+  
+  # Objectivos
+  
+  ## Objetivo principal
+  
+  - Analizar la relación epidemiológica y los factores asociados entre la DM y la TB en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona).
+- Conocer el riesgo de TB entre la población con DM en un distrito de elevada prevalencia de TB (Ciutat Vella de Barcelona) para identificar subgrupos de alto riesgo y potencialmente susceptibles de cribado de TB.
+
+
+## Objetivos secundarios 
+
+- 1.  Comparar la evolución de la prevalencia de la DM y de la TB en el periodo 2006 al 2015 en el distrito de Ciutat Vella, un entorno de alta prevalencia de TB.
+- 2.	Conocer la prevalencia y la incidencia de TB entre la población con DM con respecto a la población no diabética.
+- 3.	Analizar si el grado de control metabólico de la DM influye en la forma de TB (pulmonar o extrapulmonar), la gravedad y la respuesta al tratamiento.
+- 4.	Analizar el papel de la inmigración en la relación entre DM y TB.
+
+-----
+  
+  
+  ## Actualizaciones 
+  
+  
+  >16/9/2020
+&check; Agregar variable tabaquisme en base a diagnóstic <br/>
+  &check; Generar variable qualsevol vacuna <br/>
+  
+  
+  >09/2020
+&check; Nova variable Tractament antidiabetic <br/>
+  &check; Descriptiva comparativa d'events TVC del subestudi de DM vs no DM <br/>
+
+>22-30/06/2020
+&check; Recategorització de grups de paisos a) Espanya+Paisos Rics, b) India, pakistan , c) Resta, d) None) <br/>
+&check; En Cohort dinàmica, truncament de seguiment quan canvia de grup <br/>
+&check; Fer els truncaments a la cohort dinàmica <br/>
+&check; Descriptiu general del tots els casos de TBC ja siguin antencedents o events de la base de dades de l’Agència) <br/>
+&check; Capturar històric HBA1c.valor <br/>
+&check; Generació de variables HBA1c.valor en ultima data (dt_lliure_TBC: data de TBC o Última data de seguiment) <br/>
+&check; Comparativa de mitjanes últim valor HBA1c entre TBC's i no TBC's  <br/>
+
+
+## Hecho: 
+
+>31/03/2021
+&check; Modelos de Cox dependientes del timepo Cluster para la Glicada en los Diabeticos <br/>
+
+>08/06/2020
+&check; Reprogramació cohort dinàmica (Controls sense reemplaçament / Casos Reutilitzats) <br/>
+&check; Categorització de paisos <br/>
+&check; Actualització de resultats <br/>
+
+>15/05/2020
+&check; Depuració: Reclassificació de controls a diabetics segons històric de fàrmacs antidiabètics i data d'inclusió (Mínima)<br/>
+  &check; Depuració: Recalcul d'edat només basat en CIP <br/>
+&check; Depuració: Reconsiderar esdeveniment TBC només aquells amb informació a BD ASPB <br/>
+&check; Depuració: Detectat i eliminats subjectes per edat (Nascuts post inclusió) <br/>
+
+>
+&check; Incluir subjectes amb antecedents TBC <br/>
+&check; Agrupació de paisos per árees <br/> 
+&check; Anàlisis de sensibilitat amb esdeveniments ASPB <br/>
+&check; + Models <br/>
+&check; Descriptiu d'esdeveniments de TBC <br/>
+  &check; Descriptiu de dades ASPB <br/>
+  &check; Reanàlisis complet <br/>
+  
+  >
+  &check; Actualitzat event TBC amb data de tractament / data notificació (primera entre amdues)  / o DET_TB segons E-CAP en cas contrari <br/>
+  &check; Consideració de qualsevol DM (I o II) <br/>
+  &check; Primera data de TBC en cas de repetició de TBC <br/>
+  &check; Eliminats morts a 01/01/2007 (dades agencia i dades e_cap)<br/>
+  &check; Neteja de dades, data de mort previa a diagnostics i Events <br/>
+  &check; Anàlisis matching matching Cohort estatíca  <br/>
+  &check; Anàlisis matching matching Cohort dinàmica amb variables depenent del temps <br/>
+  &check; Programació dinamica <br/>
+  &check; Anàlisis temps dependent cohort dinàmica <br/>
+  &check; Anàlisis exploratori dades agència <br/>
+  &check; Generació de 251 variables <br/>
+  &check; Actualització de dades de l'Ecap  <br/>
+&check; Vinculació de taules E-cap <br/>
+&check; Depuració de dades  <br/>
+&check; Reprogramació i generació de resultats  <br/>
+&check; Lectura de tablas de históricos de E-Cap proporcionadas por Basic
+&check; Agregación en fecha de inclusión (1/2007)
+&check; vinculación de tablas en una 
+&check; Depuración de errores (Eliminación de duplicados, valores negativos .....) 
+&check; Cálculo de variables  
+&check; Descriptivo inicial exploratorio 
+&check; Análisis de associación de DM versus TBC 
+&check; Estimación de incidéncias 
+
+## Pendiente: 
+
+- Depurar base de datos (Corregir errores, definir rango de valores válidos etc...) 
+- Etiquetar variables y  valors
+- Análisis por objetivos
+- Subanálisis
+
+## Consideraciones / limitaciones:
+
+- Solo TBC con fecha disponible
+- Excluidos repetidos
+- Base de datos vacunas solo disponible a partir de 12/2007 (No en basal)
+- Reclasificados expuestos diabeticos en fecha de inclusión (1/2007)
+- Possible infraregistro de diagnosticos en 2007
+- Alto número de valores faltantes en covariables
+
+```
+
+
+```
+## Dependenet Time Variable DM Cox   HBA1c us TBC
+
+```{r Analitica_Temps, include=FALSE}
+
+#############
+#[26.3.2021]#
+#############
+
+#dades.
+
+
+library(ggplot2)
+library(dplyr)
+library(survminer)
+library(compareGroups)
+library(kableExtra)
+library(gt)
+library(survival)
+
+# CArrego funcions -------------------
+link_source<-paste0("https://github.com/jrealgatius/Stat_codis/blob/master/funcions_propies.R","?raw=T")
+devtools::source_url(link_source)
+if (params$metode=="dinamica2") dir_output<-"dades/output_dinamic2"
+
+
+load(here::here(dir_output,"output5.Rdata"))
+
+
+# Transformem la base de dades!:
+
+dades$dtindex2<-as.character(dades$dtindex)
+dades$any_index<-substr(dades$dtindex2,1,4)
+dades$any_index<-as.numeric(dades$any_index)
+dades$any_naix<-as.numeric(dades$any_naix)
+dades<-dades%>%mutate(edat=any_index-any_naix)
+
+
+dades2<-dades%>%select(idp,sexe,edat)
+
+dades_analitiques_DM<-dades%>%filter(grup=="Diabetis")
+
+dt_variables2<-dt_variables%>%mutate(idp=CIP)%>%select(-CIP)%>%left_join(dades_analitiques_DM,by="idp")%>%
+  select(idp,sexe,dtindex,cod,dat,val,situacio,datafi,EV.TBC)
+
+##############
+#[25.03.2021]#
+##############
+
+dt_variables2<-dt_variables2%>%filter(!is.na(situacio))
+
+dt_variables2<-dt_variables2%>%mutate(TBC= ifelse(is.na(EV.TBC) , 0, 1))
+dt_variables2<-dt_variables2%>%mutate(situacio= ifelse(TBC==1 ,"TBC" , situacio))
+dt_variables2$datafi<-ifelse(!is.na(dt_variables2$EV.TBC),dt_variables2$EV.TBC,dt_variables2$datafi)
+dt_variables2$datafi<-as.Date(dt_variables2$datafi,origin = "1970-01-01")
+
+#[MIRAR els events de TBC!]
+#tranformem les variables de dates a numeriques, perque funcioni la FUNCIO!:
+
+dt_variables2$dat<-as.character(dt_variables2$dat)
+
+dt_variables2$DIA<-substr(dt_variables2$dat,9,10)
+dt_variables2$MES<-substr(dt_variables2$dat,6,7)
+dt_variables2$ANY<-substr(dt_variables2$dat,1,4)
+
+dt_variables2$dat<-paste0(dt_variables2$ANY,dt_variables2$MES,dt_variables2$DIA)
+
+dt_variables2$dat<-as.numeric(dt_variables2$dat)
+
+
+dt_variables2$datafi<-as.character(dt_variables2$datafi)
+
+dt_variables2$DIA2<-substr(dt_variables2$datafi,9,10)
+dt_variables2$MES2<-substr(dt_variables2$datafi,6,7)
+dt_variables2$ANY2<-substr(dt_variables2$datafi,1,4)
+
+dt_variables2$datafi<-paste0(dt_variables2$ANY2,dt_variables2$MES2,dt_variables2$DIA2)
+
+dt_variables2$datafi<-as.numeric(dt_variables2$datafi)
+dt_variables2<-dt_variables2%>%select(idp,cod,dat,val,situacio,datafi,dtindex)
+dt_variables2<-dt_variables2%>%arrange(cod ,dat)
+
+
+# Funció Analitica Temps, per aconseguir fer model de cox dependent en el temps, amb Cluster!
+
+
+Analitica_Temps<-function(
+  dt=dt_variables2 ,  
+  grup="HBA1c",
+  dataini="dat",
+  datasort="datafi",
+  endpt="situacio",
+  bd.dindex="20000101"
+  #
+  #
+) 
+{
+  
+  #dt=dt_variables2 
+  #grup="HBA1c"
+  #dataini="dat"
+  #datasort="datafi"
+  #endpt="situacio"
+  #bd.dindex=dt_variables2$dtindex  
+  
+  # sempre la nostra b.d- analitica , ha de tenir: [idp,cod,val], 
+  # també, dataInici?,dataSortida?,endPoint?, i dt_index? [qualsevol nom] 
+  # sym(!!, treus les ""
+  
+  #hem posat sexe , s'ha de treure : 26.3.2021!!
+  
+  dt<-dt%>%select(idp,cod,val,sym(!!dataini),sym(!!datasort),sym(!!endpt))
+  dt<-dt%>%arrange(idp,!!dataini)
+  
+  #
+  dataini<-rlang::sym(dataini)
+  datasort<-rlang::sym(datasort)
+  #
+  
+  print("Afegint data index en Analitca depenent del Temps")
+  dt<-afegir_dataindex(dt,bd.dindex)
+  
+  dt<-dt%>%filter(cod==!!grup)
+  #
+  #################################################################
+  #24.3.2021
+  dt<-dt%>%filter(!!datasort>=0)
+  #################################################################
+  #
+  print("Posem un NA, aquelles Dates inferiors , al dia Index")
+  dt<-dt%>%mutate(dat = ifelse(dat<dtindex , NA, dat ))
+  #
+  print("Convertim les dates numeriques , amb dates!  ")
+  
+  dt<-dt%>%mutate(dat2=as.character(!!dataini))
+  dt<-dt%>%mutate(dat2=as.Date(dat2,"%Y%m%d"))
+  
+  dt<-dt%>%mutate(dat_sort=as.character(!!datasort))
+  dt<-dt%>%mutate(dat_sort=as.Date(dat_sort,"%Y%m%d"))
+  #
+  #
+  print("Calculem el temps!!!")
+  dt<-dt%>%dplyr::group_by(idp)%>%mutate(T1=dat2-lag(dat2))%>%ungroup() 
+  dt$T1<-as.double(dt$T1)
+  dt<-dt%>%mutate(T1 = ifelse(T1==0 | is.na(T1) , 0, T1))
+  #
+  print("tstart=temps inicial acumulatiu!")
+  dt<-dt%>%group_by(idp)%>%mutate(tstart = cumsum(T1))%>%ungroup() 
+  #
+  print("tstop=temps final acumulatiu!, comptant la data final!")
+  dt<-dt%>%group_by(idp)%>%mutate(tstop=lead(tstart))%>%ungroup() 
+  #
+  dt<-mutate_at(dt, vars( starts_with("tstop") ), funs( if_else(is.na(.)  ,(dat_sort-dat2)+tstart,tstop)))
+  #
+  print("Base de Dades, preparada, per fer un models amb variables dependents del temps")
+  dt<-dt%>%filter(tstop>0)%>%select(-T1,-dat2,-dat_sort)
+  #################################################################
+  #24.3.2021
+  #
+  dt$tstop<-as.numeric(dt$tstop)
+  #
+  #################################################################
+  #25.3.2021
+  #
+  dt<-dt%>%mutate(kk=ifelse(idp==lead(idp),0,1))
+  dt<-dt%>%mutate(situacio=ifelse(kk==1,situacio,"A"))
+  dt<-dt%>%select(-kk)
+  #
+  #
+  ##################################################################
+  
+  #
+  dt
+}
+
+##################################################################
+#FALTA , preguntar Jordi R , pel DTINDEX, +Repàs de la sintaxis! #
+##################################################################
+
+
+#
+
+analitiques_temps<-Analitica_Temps(
+  dt=dt_variables2 ,  
+  grup="HBA1c",
+  dataini="dat",
+  datasort="datafi",
+  endpt="situacio",
+  bd.dindex=dt_variables2$dtindex )
+
+
+analitiques_temps<-analitiques_temps%>%left_join(dades2,by="idp")
+
+
+analitiques_temps<-analitiques_temps%>%mutate(val2 = ifelse(val<8 | is.na(val) , 0, 1))
+analitiques_temps<-analitiques_temps%>%mutate(val3 = ifelse(val<9 | is.na(val) , 0, 1))
+
+#analitiques_temps
+#analitiques_temps$situacio
+
+analitiques_temps<-analitiques_temps %>% mutate(edat_CAT=case_when(edat<75 ~ "1.<75", edat >=75~ "2.>=75" ))
+analitiques_temps<-analitiques_temps %>% mutate(sex2=case_when(sexe=="Female" ~ 0,sexe=="Male" ~ 1))
+
+
+
+# Ara fem els MODELS!:[]
+
+
+
+
+```
+
+## M1: val(glicada continua)+sexe+edat+cluster(idp)
+
+```{r MODEL1, include=T,warning=F}
+
+#[26.3.2021]#
+
+#i)M1:val+sexe+edat+cluster(idp)
+fit1 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val+sexe+edat+cluster(idp),data=analitiques_temps)
+fit1
+cox.zph(fit1)
+plot(cox.zph(fit1))
+
+```
+
+## M2: val(glicada continua)+edat+cluster(idp)
+
+```{r MODEL2, include=T,warning=F}
+
+#ii)M2:val+edat+cluster(idp)
+fit2 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val+edat+cluster(idp), data=analitiques_temps)
+fit2
+cox.zph(fit2)
+plot(cox.zph(fit2))
+
+```
+
+## M3: val2(glicada >8%)+sexe+edat+cluster(idp)
+
+```{r MODEL3, include=T,warning=F}
+
+#iii)M3:val2+sexe+edat+cluster(idp)
+fit3 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val2+sexe+edat+cluster(idp), data=analitiques_temps)
+fit3
+cox.zph(fit3)
+plot(cox.zph(fit3))
+
+```
+
+## M4: val2(glicada >8%)+edat+cluster(idp)
+
+```{r MODEL4, include=T,warning=F}
+
+#iv)M4:val2+edat+cluster(idp)
+fit4 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val2+edat+cluster(idp), data=analitiques_temps)
+fit4
+cox.zph(fit4)
+plot(cox.zph(fit4))
+
+```
+
+## M5: val2(glicada >9%)+sexe+edat+cluster(idp)
+
+```{r MODEL5, include=T,warning=F}
+
+#v)M5a:val3+sexe+edat+cluster(idp)
+fit5 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+sexe+edat+cluster(idp), data=analitiques_temps)
+fit5
+cox.zph(fit5)
+plot(cox.zph(fit5))
+
+#vb)M5b:val3+sexe+edat ( sense Cluster, per veure com fa  l estimacio)
+fit5 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+sexe+edat, data=analitiques_temps)
+fit5
+cox.zph(fit5)
+plot(cox.zph(fit5))
+
+```
+
+##  M6: val2(glicada >9%)+edat+cluster(idp)
+
+```{r MODEL6, include=T,warning=F}
+
+#vi)M6:val3+edat+cluster(idp)
+fit6 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+edat+cluster(idp), data=analitiques_temps)
+fit6
+cox.zph(fit6)
+plot(cox.zph(fit6))
+
+```
+
+##  M7: val2(glicada >8%)+sexe+edat_CAT+cluster(idp)
+
+```{r MODEL7, include=T,warning=F}
+
+#vii)M7:val2+sexe+edat_CAT+cluster(idp)
+fit7 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val2+sexe+edat_CAT+cluster(idp), data=analitiques_temps)
+fit7
+cox.zph(fit7)
+plot(cox.zph(fit7))
+
+```
+
+## M8: val2(glicada >8%)+sexe+cluster(idp)
+
+```{r MODEL8, include=T,warning=F}
+
+#viii)M8:val2+sexe+cluster(idp)
+fit8 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val2+sexe+cluster(idp), data=analitiques_temps)
+fit8
+cox.zph(fit8)
+plot(cox.zph(fit8))
+
+```
+
+## M9: val2(glicada >8%)+edat_CAT+cluster(idp)
+
+```{r MODEL9, include=T,warning=F}
+#xi)M9:val2+edat_CAT+cluster(idp)
+fit9 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val2+edat_CAT+cluster(idp), data=analitiques_temps)
+fit9
+cox.zph(fit9)
+plot(cox.zph(fit9))
+
+```
+
+## M10: val2(glicada >9%)+sexe+edat_CAT+cluster(idp)
+
+```{r MODEL10, include=T,warning=F}
+
+#x)M10:val3+sexe+edat_CAT+cluster(idp)
+fit10 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+sexe+edat_CAT+cluster(idp), data=analitiques_temps)
+fit10
+cox.zph(fit10)
+plot(cox.zph(fit10))
+
+```
+
+## M11: val2(glicada >9%)+sexe+cluster(idp)
+
+```{r MODEL11, include=T,warning=F}
+
+#xi)M11:val3+sexe+cluster(idp)
+fit11 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+sexe+cluster(idp), data=analitiques_temps)
+fit11
+cox.zph(fit11)
+plot(cox.zph(fit11))
+
+```
+
+## M12: val2(glicada >9%)+edat_CAT+cluster(idp)
+
+```{r MODEL12, include=T,warning=F}
+
+#xii)M12:val3+edat_CAT+cluster(idp)
+fit12 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+edat_CAT+cluster(idp), data=analitiques_temps)
+fit12
+cox.zph(fit12)
+plot(cox.zph(fit12))
+
+```
+
+## M13: val2(glicada >9%)+edat_CAT+cluster(idp)+strata(sexe)
+
+```{r MODEL13, include=T,warning=F}
+
+##xiii)
+fit13 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+edat_CAT+cluster(idp)+strata(sexe), data=analitiques_temps)
+fit13
+cox.zph(fit13)
+plot(cox.zph(fit13))
+
+```
+
+## M14: val2(glicada >9%)+edat_CAT+cluster(idp)+strata(sexe2)
+
+```{r MODEL14, include=T,warning=F}
+
+fit14 <- coxph(Surv(tstart, tstop, situacio=="TBC") ~ val3+edat_CAT+cluster(idp)+strata(sex2), data=analitiques_temps)
+fit14
+cox.zph(fit14)
+plot(cox.zph(fit14))
+
+```
+
+
+&nbsp;
+<hr />
+  <p style="text-align: center;">A work by $Jordi Real$ $Rai Puig$ </a></p>
+  <p style="text-align: center;">$Llepali-System$ </a></p>
+  <p style="text-align: center;"><span style="color: #808080;"><em><https://github.com/USR-DAPCAT/></em></span></p>
+  
+  

@@ -65,15 +65,30 @@ Esquema_ggplot<-function(dt=dt_temp,datainicial="data",datafinal="datafi",id="id
 
 extreure_HR<-function(a="grup2",x="DM_ajust",c=c,...) { 
   
-  if (x!="") covariables<-c(a,extreure.variables(x,conductor_variables)) %>% unique() %>% paste0(collapse = ", ")
-  if (x=="") covariables<-c(a) 
+  # a="grup2"
+  # x="DM_ajust3"
+  # event = "event_tbc"
+  # t="temps_tbc"
+  # d=dades
+  # taulavariables = conductor_variables
+  # c=cluster
+
+  ## Etiquetar variables
+  if (x!="") { covariables<-c(extreure.variables(x,conductor_variables)) 
+               cov_labels<-etiquetar_vector(covariables,taulavariables=conductor_variables,camp_descripcio="Descripcio")
+               cov_labels<-cov_labels %>% unique() %>% paste0(collapse = ", ")}
   
+  if (x=="") {cov_labels<-"Unadjusted"}
+
   if (c=="") method="Cox-PH" else method="Cox PH by clusters"
   
   num_nivells<-levels(as.factor(dades[[a]])) %>% length()
   
-  HR.COX(a=a,x=x,...) %>% as_tibble(rownames="id") %>% 
-    transmute(var=id,HR=HRadjusted,`Li95%CI`=IC951,`Ls95%CI`=IC952,`p-value`=p,method=method,adjustedby=covariables) %>% 
+  taula_HR<- HR.COX(a=a,x=x,...) %>% as_tibble(rownames="id")
+  # taula_HR<- HR.COX(a=a,x=x,d=dades,taulavariables=conductor_variables,t="temps_tbc",event = "event_tbc") %>% as_tibble(rownames="id")
+
+  taula_HR %>% 
+    transmute(var=id,HR=HRadjusted,`Li95%CI`=IC951,`Ls95%CI`=IC952,`p-value`=p,method=method,adjustedby=cov_labels) %>% 
     filter(row_number() %in% c(1,num_nivells-1))
   
 }
@@ -83,12 +98,18 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode 
   # failcode = "Event"
   # cencode = "End of follow-up"
   # dt=dades
-  # cov1="DM_ajust3"
-  # a="grup"
-  
+  # cov1="DM_ajust4"
+  # a="grup2"
+ 
   gc()
   
   if (cov1!="") covariables<-c(a,extreure.variables(cov1,conductor_variables,variable_camp = "camp")) %>% unique() else covariables<-c(a)
+  
+  ## Etiquetar variables
+  if (cov1!="") {
+    lab_covariables<-covariables[!covariables==a] %>% 
+      etiquetar_vector(taulavariables=conductor_variables,camp_descripcio="Descripcio") } else {lab_covariables<-"Unadjusted"}
+  
   
   nomscovariables<-colnames(stats::model.matrix(formula_vector(covariables,""),data = dt))[-1]
   cov1 <- stats::model.matrix(formula_vector(covariables,""),data = dt)[, -1]
@@ -113,8 +134,8 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode 
               `p-value`) %>% 
     filter(row_number() %in% c(1,num_nivells-1))
   
-  
-  as_tibble(x) %>% bind_cols(method="Competing risk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
+
+  as_tibble(x) %>% bind_cols(method="Competing risk",adjustedby=paste0("",paste0(unique(lab_covariables),collapse = ", "), collapse = " ,"))
   
 }
 
@@ -148,11 +169,12 @@ plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "E
 
 forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Linf",upper="Lsup",label_X="OR (95% CI)",
                          intercept=1,
-                         nivell="outcome", factor1="type",color=F, label_Xvertical="Method",nolabels=TRUE,
+                         nivell="outcome", factor1="type",color=F, label_Xvertical="Method",
+                         nolabels=TRUE,
                          title = "Forest plot of hazard ratios by method",
-                         label_Favors="Favors Controls        Favors DM") {
+                         label_Favors="Favors Controls        Favors DM",add_table=F) {
   
-  # dadesmodel=taula_models_COX
+  # dadesmodel=taula_models
   # label="var"
   # mean="HR"
   # lower="Li95%CI"
@@ -160,11 +182,12 @@ forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Lin
   # label_X="Hazard ratio (95% CI)"
   # intercept=1
   # nivell="method"
-  # factor1="adjust"
+  # factor1="Model"
   # label_Xvertical = "Method"
   # color=F
   # nolabels=TRUE
   # label_Favors="Favors SGLT-2        Favors oGLD-2"
+  # title = "Forest plot of hazard ratios by method"
   
   # Generar data set 
   dadesmodel <- dadesmodel %>% select(valor=!!mean,Linf=!!lower,Lsup=!!upper,nivell=!!nivell, factor1=!!factor1)
@@ -191,7 +214,7 @@ forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Lin
   taula_betas<-taula_betas %>% mutate(id=seq(n())) %>% mutate(id=n()-id+1)
   
   # REomplir missings en factor1 i factor2
-  taula_betas<-taula_betas %>% fill(c(factor1,Group),.direction="updown")
+  taula_betas<-taula_betas %>% tidyr::fill(c(factor1,Group),.direction="updown")
   
   # Relevel mateix ordre tal com surt taula   
   ordre_levels<-taula_betas %>% pull(Group) %>% unique()
@@ -226,7 +249,19 @@ forest.plot.HR<-function(dadesmodel,label="Categoria",mean="estimate",lower="Lin
   # Add banda d'error
   # fp<-fp + geom_hline(yintercept = c(intercept+0.1,intercept-0.1),linetype=2)
   
-  fp 
+  # Afegir Taula de coeficients
+  if (add_table) {
+    taula_betas<-taula_betas %>% mutate(HR_IC=if_else(!is.na(valor),paste0(sprintf("%04.2f",valor)," (",sprintf("%04.2f",Linf),";",sprintf("%04.2f",Lsup),")"),""))
+    
+    fp<- 
+      fp + geom_text(aes(x=id,y=xmax+1), label=taula_betas$HR_IC) + 
+      annotate("text", x=ymaxim+0.5,y=xmax+1,label=" HR (95% CI)") +
+      ylim(xmin,xmax+1.5)
+     
+    } else fp
+    
+  
+  fp
   
   # plotly::ggplotly(fp) 
   
@@ -274,6 +309,9 @@ model_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode =
               `Ls95%CI`=exp(coef+ qnorm(1 - (1-0.95)/2)*`se(coef)`),
               `p-value`) 
   
+  # Etiquetar variables
+  covariables<-etiquetar_vector(covariables,taulavariables=conductor_variables,camp_descripcio="Descripcio")
+  
   resum<-as_tibble(x) %>% bind_cols(method="Competing risk",adjustedby=paste0("",paste0(unique(covariables),collapse = ", "), collapse = " ,"))
   
   list(model_crrsc=model,resum_crrsc=resum)
@@ -282,20 +320,28 @@ model_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode =
 }
 
 
-forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="OR (95% CI)", intercept=1) {
+forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="OR (95% CI)", intercept=1,
+                                   add_table=F) {
   
-  # dadesmodel=dt_dif
-  # label="lipo"
-  # mean="dif_st"
-  # lower ="ci1"
-  # upper="ci2"
-  # label_X="Differences standardized (95% CI)"
-  # intercept=0
+  # dadesmodel=dadesmodel
+  # label="Categoria"
+  # mean="HR"
+  # lower="Li95%CI"
+  # upper="Ls95%CI"
+  # label_X="HR (95% CI)"
+  # intercept=1
+  # add_table=T
   
   # dadesmodel<-dadesmodel %>% mutate(id=seq(length(dadesmodel[[label]])))
   
   # Generar data set 
   dadestemp <- dadesmodel %>% select(etiqueta=!!label,valor=!!mean,Linf=!!lower,Lsup=!!upper,id) %>% arrange(id)
+
+  
+  #limits màxims d'eixos
+  xmax=max(dadestemp$Lsup,na.rm = T) %>% max(4) 
+  xmin=min(dadestemp$Linf,na.rm = T) %>% min(0.2)
+  ymaxim=dadestemp %>% count() %>% as.numeric()
   
   fp <- ggplot(data=dadestemp,aes(x=id, y=valor, ymin=Linf, ymax=Lsup)) +
     geom_errorbar(size=0.6,width =0.4) +
@@ -305,10 +351,19 @@ forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean=
     xlab("Variable") + ylab(label_X) +
     scale_x_continuous(breaks=dadestemp %>% pull(id),labels=dadestemp %>% pull(etiqueta))
   
-  fp
+  # Afegir Taula de coeficients
+  if (add_table) {
+    
+    dadestemp<-dadestemp %>% mutate(HR_IC=if_else(!is.na(valor),paste0(sprintf("%04.2f",valor)," (",sprintf("%04.2f",Linf),";",sprintf("%04.2f",Lsup),")"),""))
+    
+    fp<- fp + ylim(xmin,xmax+15) +
+      geom_text(aes(x=id,y=xmax+5),label=dadestemp$HR_IC,hjust=0) + 
+      annotate("text", x=ymaxim+1,y=xmax+5,label=" HR (95% CI)",hjust=0) 
+      
   
-}
-
+    } else fp
+  
+  }
 
 
 

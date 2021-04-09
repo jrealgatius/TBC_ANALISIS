@@ -16,7 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
-  test: TRUE
+  test: TRUE # TRUE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -260,7 +260,6 @@ dades<-dades %>%
   mutate(descNacionalitat.2=if_else(descNacionalitat.2=="None","1. Espanya",descNacionalitat.2))
  
 
-
 ```
 
 
@@ -293,6 +292,9 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 # dades %>% filter(!is.na(DET2_TB)) %>% transmute(case.id,CIP,dtindex,DET_TB,lubridate::as_date(DET2_TB),event_tbc,filtre_TBC,grup)
 # 
 # dades %>% distinct(CIP)
+
+
+
 
 ```
 
@@ -335,6 +337,7 @@ dades$surv_tbc_agencia<-with(dades,Surv(temps_tbc, event_tbc_agencia))
 # dades %>% filter(event_tbc==1) %>% distinct(CIP)
 # dades %>% filter(event_tbc_agencia==1) %>% distinct(CIP)
 # temp<-dades %>% filter(event_tbc_agencia==1) %>% select(case.id, CIP,event_tbc_agencia,grup) %>% distinct(case.id)
+
 
 
 ```
@@ -426,7 +429,6 @@ dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
 # s'ha de tornar a etiquetar després de criteris_exclusió
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
-
 
 ```
 
@@ -542,8 +544,6 @@ set.seed(123)
 
 if (params$test) ids<-dt_temp %>% pull(id) %>% unique () %>% head(2) else ids<-c("155","5698")
 
-
-
 dt_temp<-dt_temp %>% arrange(desc(dtindex)) %>% 
   filter(id %in% ids) %>% 
   mutate(num=1:n(),id=as.factor(id)) %>% 
@@ -647,8 +647,8 @@ dades<-dades %>% mutate (grup2=if_else(is.na(grup2),"DM2",grup2))
 
 # DM Prevalent/incident
 dades<-dades %>% 
-  mutate(grup3=case_when(grup=="Diabetis" & any2007=="Si"~ "DM Prevalent",
-                         grup=="Diabetis" & any2007=="No"~ "DM Incident", 
+  mutate(grup3=case_when(grup=="Diabetes" & any2007=="Si"~ "DM Prevalent",
+                         grup=="Diabetes" & any2007=="No"~ "DM Incident", 
                          grup=="Control"~"Control")) 
 
 
@@ -665,7 +665,7 @@ descrTable(formu,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "N
 
 ```{r, include=TRUE}
 
-dt_temp<-dades %>% filter(grup=="Diabetis")
+dt_temp<-dades %>% filter(grup=="Diabetes")
 
 formu<-formula_compare(x="table2",y="",taulavariables = conductor_variables)
 descrTable(formu,data=dt_temp,show.p.overall = F,show.n = T, hide.no = T,hide = "No") %>% 
@@ -694,6 +694,13 @@ res4<-dades %>% split(.$grup3) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="eve
 res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4) %>% 
   kable(digits = 2,caption = "Table 3. Incidence of TB in DM and non-DM patients ") %>% kableExtra::kable_styling()
 
+# Salvar taula de taxes
+
+res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4) %>% 
+  saveRDS("resultats/incidencies.Rds")
+
+
+
 ```
 
 
@@ -716,9 +723,6 @@ descrTable(surv_tbc~grup3,data=dades,show.ratio = T, byrow = T ,surv = T) %>% ex
 
 ```{r genero_HR, message=FALSE, warning=FALSE, include=T, echo=FALSE,size="huge"}
 # Estimació de HR complets de riscos competitius
-
-
-
 if (params$metode=="dinamica2") cluster="case.id" else cluster=""
 
 # Ajustos
@@ -741,11 +745,11 @@ taula_models_FG<-vector_ajustos %>% purrr::map_df(~
 taula_models<-taula_models_FG %>% bind_rows(taula_models_COX)
 
 
+saveRDS(taula_models,"resultats/taula_models.Rds")
 
 
 # extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Unadjusted")
 # Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
-
 
 
 ```
@@ -768,6 +772,9 @@ mom5.1 %>%
   kableExtra::kable_styling() %>% 
   kableExtra::add_footnote(paste0("Method: ",mom5.1$method,". Adjusted by: ",mom5.1$adjustedby))
 
+
+mom5.1 %>% bind_rows(mom5.2) %>% bind_rows(mom5.3) %>% 
+  saveRDS("resultats/HR_subtipus.Rds")
 
 
 ```
@@ -810,18 +817,17 @@ taula_models %>%  kable(digits = 3,caption = "TS1. HR de risk de TB segons difer
 ```{r,include=T}
 
 
-
 forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
                nivell = "Model",factor1="method",label_Xvertical="Fit",
-               label_Favors="Favors Controls        Favors DM",color = T)
+               label_Favors="Favors Controls        Favors DM",color = T,add_table = T)
 
 
 
 pp<-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
                nivell = "method",factor1="Model",label_Xvertical="Fit",
-               label_Favors="Favors Controls        Favors DM",color = T)
+               label_Favors="Favors Controls        Favors DM",color = T,add_table = T)
 
 pp
 
@@ -830,6 +836,11 @@ grDevices::png(here::here("figures","Figure3_Forest1.png"))
 pp
 
 grDevices::dev.off()
+
+taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),
+                                 adjustedby)
+
+
 
 ```
 
@@ -857,11 +868,11 @@ with(imp,coxph(Surv(temps_tbc, event_tbc) ~ grup)) %>%
   summary()
 
 # Ara fem lo mateix amb competingrisk
-model<-crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetis"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio")
+model<-crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetes"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio")
 summary(model)
 
 # ImpPUTAció
-pp<-with(imp,crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetis"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio"))
+pp<-with(imp,crrSC::crrc(ftime=dt_temp$temps_tbc,fstatus=dt_temp$status,cov1=(dt_temp$grup=="Diabetes"),cluster=dt_temp$case.id, failcode = "Event", cencode = "Fin estudio"))
 
 pp %>% mice::pool()
 
@@ -946,6 +957,9 @@ HR.COX(x="HBcat_ajust",event = "event_tbc",t="temps_tbc",d=dades,taulavariables 
 
 HR.COX(x="HBcat_ajust2",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% 
   kable(digits = 3,caption = "HR ajustats segons covariables") %>% kableExtra::kable_styling()
+
+
+
 
 
 ```
@@ -1121,26 +1135,27 @@ dadesmodel<-modelcomplet$resum_crrsc %>%
   filter(!stringr::str_ends(var,"None")) %>%  # Eliminar categoria None 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
   dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value') 
-  
 
 dadesmodel %>% select(-id) %>% 
   kable(digits = 3) %>% kableExtra::kable_styling()
 
-
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12)
 
-pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12) + 
   scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) +
-  labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")
-  
+  labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")+
+  expand_limits(y=c(0.10,150))
 
 pp
 
 grDevices::png(here::here("figures","Figure_Forest2.png"))
 pp
 dev.off()
+
+
+saveRDS(modelcomplet,"resultats/modelcomplet.Rds")
 
 
 
@@ -1171,16 +1186,30 @@ dadesmodel %>% select(-id) %>%
   kable(digits = 3) %>% kableExtra::kable_styling()
 
 
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12)
 
-pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1)+
+pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12) + 
   scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) +
   labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")
   
 
 pp
+
+
+
+```
+
+
+
+```{r salvar_objectes}
+# Salvaré taules de resultats i figures per tal de després graficar-les en format Dashboard
+
+# Analisis de sensibilitat 
+
+
+
 
 
 

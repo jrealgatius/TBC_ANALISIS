@@ -1,0 +1,189 @@
+---
+title: "Diabetes mellitus and Tuberculosis"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: cerulean
+    social: menu
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(ggplot2)
+
+```
+
+
+
+```{r lectura_dades}
+# taula_models<-readRDS("codi/resultats/taula_models.Rds")
+# source("codi/funcions_TBC.R")
+
+taula_models<-readRDS("../resultats/taula_models.Rds")
+source("../funcions_TBC.R")
+
+
+
+# load("dades_shiny_flex.Rdata")
+# dades<-readRDS("dades_compres.Rds")
+
+
+```
+
+
+
+Column {.sidebar data-width=300}
+==========================
+
+#### *Suplementary material*
+
+<br/>
+
+<img src="logo_dapcat.png" align = "right" width =  "90" height = "50" vertical-align: top />
+
+[<img src = "https://www.idiapjgol.org/images/logo.png" align = "center" width =  "90" height = "50" />](https://www.idiapjgol.org)
+
+
+<br/>
+
+
+### A cohort study in an inner district with high incidence of tuberculosis in Barcelona
+
+
+<br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
+
+The source code is available at [github/jrealgatius](https://github.com/jrealgatius/TBC_ANALISIS)
+
+by [Jordi Real](https://github.com/jrealgatius/CV/blob/master/Jordi%20Real%E2%80%99s%20CV.pdf)
+
+jreal@idiapjgol.info 
+
+
+
+Sampling and follow-up sheeme {data-width=200}
+================================
+
+#### Sampling
+
+El metodo de muestreo utilizado fué por density sampling. 
+
+Ésta figura representa un esquema temporal del reclutamiento de de casos con un ejemplo de 5 parejas de casos. Se seleccionaron DMs incidentes a medida que se ivan produciendo y sus respectivos controles del mismo sexo, edad en fecha de inclusión
+
+A case is a person who is recorded as diabetes at index date. A control is a person who has not yet have diabetes at the index date of the case. The index date of the case can also be the onset of a disease (or other exposure), in which case controls are persons who do not yet have the disease (are not yet exposed). 
+
+
+![](figures/Figure1_esquema.png) 
+
+```{r}
+
+```
+
+#### Follow-up
+
+Una vez identificados se siguen hasta fin de seguimiento. Lo cual determina su tiempo a riesgo (Linea negra).
+
+El seguimiento fué hasta 31/12/2018, hasta la muerte o hasta el cambio de grupo
+
+
+
+![](figures/Figure2_esquema.png) 
+
+#### Cambio de grupo
+
+Ejemplo de cambio de grupo
+
+![](figures/Figure1.2_esquema.png) 
+
+---
+
+![](figures/Figure2.2_esquema.png) 
+
+
+
+
+
+Flow-Chart
+====================================
+
+#### Flow-Chart
+
+
+
+![](figures/flow_chart1.png) 
+
+
+
+Incidence curves {data-width=200}
+======================================
+
+#### Incidence curves according outcome
+
+During the follow-up, we colected data on event TB
+
+![](figures/Figure_CI.png) 
+
+
+
+Sensitivity analysis
+=================================
+
+#### Sensitivity analysis
+
+
+Additional analyses in order to check the robustness of the results include the different approach models \n
+
+```{r}
+
+
+forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
+               intercept = 1,nolabels=FALSE,
+               nivell = "method",factor1="Model",label_Xvertical="Fit",
+               label_Favors="Favors Controls        Favors DM",color = T,add_table = T)
+
+
+taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),adjustedby) %>% filter(Model!="Unadjust") %>% 
+  knitr::kable(caption="Model especifications") %>% 
+  kableExtra::kable_styling()
+
+```
+
+
+
+![](figures/Figure3_Forest1.png) 
+
+```{r}
+
+```
+
+
+
+Complete model
+=================================
+
+#### Complete model
+
+![](figures/Figure_Forest2.png) 
+
+
+
+About
+=============================
+
+#### Authors and affiliations 
+
+Authors: Antonio-Arques, Violeta (VA); Franch-Nadal, Josep (JF); Real Gatius, Jordi (JR); Moreno Martinez, Antonio (AM); Orcau Palau, Àngels (AO); Caylà, Joan A (JC)
+
+Affiliations
+
+- DAP-Cat group, Unitat de Suport a la Recerca Barcelona, Fundació Institut Universitari per a la recerca a l'Atenció Primària de Salut Jordi Gol i Gurina (IDIAP Jordi Gol), Barcelona, Spain;
+- CIBER of Diabetes and Associated Metabolic Diseases (CIBERDEM), Instituto de Salud Carlos III (ISCIII), Spain 
+- Primary Health Care Center Raval Sud, Gerència d’Atenció Primaria, Institut Català de la Salut, Barcelona, Spain
+
+
+Correspondence: josep.franch@gmail.com; jreal@idiapjgol.info 
+
+
+Author Contributions: Conceptualisation: AM, AO and CJ; methodology and design: JR JF; formal analysis: JR; resources and data curation: VA and JR.; writing—original draft preparation. VA, JC,AM ; writing—review and editing: VA, JF, JR, AM; supervision: JF and VA; project administration. JF and AO; funding acquisition: AM
+
+
