@@ -4,12 +4,10 @@
 
 # Session Data files
 .RData
-.html
 .Rdata
 
 *.RData
 
-codi/*.html
 
 /resultats
 /codi/temp
