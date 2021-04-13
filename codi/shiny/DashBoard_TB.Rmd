@@ -4,13 +4,13 @@ output:
   flexdashboard::flex_dashboard:
     theme: cerulean
     social: menu
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
 
 ```
 
@@ -18,12 +18,15 @@ library(ggplot2)
 
 ```{r lectura_dades}
 # taula_models<-readRDS("codi/resultats/taula_models.Rds")
-# source("codi/funcions_TBC.R")
+# taula_models<-readRDS("../resultats/taula_models.Rds")
 
-taula_models<-readRDS("../resultats/taula_models.Rds")
+# source("../funcions_TBC.R")
+# load("output.RData")
 source("../funcions_TBC.R")
+load("output.RData")
 
 
+# list.files()
 
 # load("dades_shiny_flex.Rdata")
 # dades<-readRDS("dades_compres.Rds")
@@ -55,22 +58,21 @@ Column {.sidebar data-width=300}
 
 The source code is available at [github/jrealgatius](https://github.com/jrealgatius/TBC_ANALISIS)
 
-by [Jordi Real](https://github.com/jrealgatius/CV/blob/master/Jordi%20Real%E2%80%99s%20CV.pdf)
+by [Jordi Real](https://github.com/jrealgatius/CV/blob/master/Jordi%20Real%E2%80%99s%20CV.pdf) & Ray Puig
 
 jreal@idiapjgol.info 
 
 
 
-Sampling and follow-up sheeme {data-width=200}
+Sampling and follow-up sheeme {data-width=600}
 ================================
 
 #### Sampling
 
-El metodo de muestreo utilizado fué por density sampling. 
+The sampling method used was density sampling. 
+This plot shown a time scheme of the recruitment of cases with an example of 5 pairs of cases. Incident Diabetes cases were selected as they occurred and their respective controls of the same sex, age on inclusion date.
 
-Ésta figura representa un esquema temporal del reclutamiento de de casos con un ejemplo de 5 parejas de casos. Se seleccionaron DMs incidentes a medida que se ivan produciendo y sus respectivos controles del mismo sexo, edad en fecha de inclusión
-
-A case is a person who is recorded as diabetes at index date. A control is a person who has not yet have diabetes at the index date of the case. The index date of the case can also be the onset of a disease (or other exposure), in which case controls are persons who do not yet have the disease (are not yet exposed). 
+A case is a person who is recorded as diabetes at index date. A control is a person who has not yet have diabetes at the index date of the case. The index date of the case can also be the onset of a disease (Diabetes), in which case controls are persons who do not yet have the disease (are not yet exposed). 
 
 
 ![](figures/Figure1_esquema.png) 
@@ -81,17 +83,15 @@ A case is a person who is recorded as diabetes at index date. A control is a per
 
 #### Follow-up
 
-Una vez identificados se siguen hasta fin de seguimiento. Lo cual determina su tiempo a riesgo (Linea negra).
-
-El seguimiento fué hasta 31/12/2018, hasta la muerte o hasta el cambio de grupo
-
+Once identified, they are followed until the end of follow-up. Which determines your time at risk (Black line).
+The follow-up was until 12/31/2018, until death or until switch group
 
 
 ![](figures/Figure2_esquema.png) 
 
-#### Cambio de grupo
+#### Switch group
 
-Ejemplo de cambio de grupo
+Example of change of group
 
 ![](figures/Figure1.2_esquema.png) 
 
@@ -108,24 +108,59 @@ Flow-Chart
 
 #### Flow-Chart
 
+Flow chart of how the sample finally analyzed has been arrived at.
+Initially we started from a potential population from Barcelona of 85,919, of which 10,065 Diabetics (Prevalent as incidents) + 75,854 potential controls. Of these, 8004 diabetics and 8004 controls of the same age and sex were matched.
+
+
+
+```{r}
+
+
+
+```
 
 
 ![](figures/flow_chart1.png) 
 
 
 
-Incidence curves {data-width=200}
+Incidence {data-width=600}
 ======================================
 
-#### Incidence curves according outcome
 
-During the follow-up, we colected data on event TB
+#### Incidence rates
 
-![](figures/Figure_CI.png) 
+During the follow-up, we collected data on Tuberculosis event recorded. 
+
+Number of subjects, tuberculosis events, and incidence rate (per 100.000 persons-year) and confidence interval (95%CI), Overall, by groups and type of diabetes during the follow-up
 
 
 
-Sensitivity analysis
+```{r}
+
+taula_incidencies %>% transmute(Group,"Subjects (N)"=Patients,"Persons-years"=round(PYears,0),"Tuberculosis events"=N.Events, 'Incidence rate'=round(rate,1),
+                                '(95% CI)'=paste0("(",round(IC95_Linf,1),";",round(IC95_Lsup,1),")")) %>% 
+  kable(digits = 2,caption = "",align = "c") %>% 
+  kableExtra::kable_styling()
+
+# ![](figures/Figure_CI.png) 
+
+```
+
+#### Cumulative incidence curve by group 
+
+
+```{r}
+
+figure1_survival
+
+# gridExtra::grid.arrange("dfafa",figure1_survival,kable(taula_incidencies))
+
+
+```
+
+
+Sensitivity analysis {data-width=600}
 =================================
 
 #### Sensitivity analysis
@@ -134,23 +169,38 @@ Sensitivity analysis
 Additional analyses in order to check the robustness of the results include the different approach models \n
 
 ```{r}
+forest_figura + expand_limits(y=c(0.10,350))+ 
+  theme(legend.text = element_text(size=8),
+        legend.key.size = unit(0.2, "cm"))
 
 
-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
-               intercept = 1,nolabels=FALSE,
-               nivell = "method",factor1="Model",label_Xvertical="Fit",
-               label_Favors="Favors Controls        Favors DM",color = T,add_table = T)
-
-
-taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),adjustedby) %>% filter(Model!="Unadjust") %>% 
-  knitr::kable(caption="Model especifications") %>% 
+taula_models %>% 
+  transmute(Model=stringr::str_remove(Model,"Model"),'Adjust variables'=adjustedby) %>% 
+  filter(Model!="Unadjust") %>% 
+  head(4) %>% 
+  knitr::kable(caption="Model specifications") %>% 
   kableExtra::kable_styling()
+
+
+
+# ![](figures/Figure3_Forest1.png) 
+
 
 ```
 
+##### Methods
+
+**Competing risk**: Competing Risks Regression for Clustered Data. Regression modeling of subdistribution hazards for clustered right censored data. Failure times within the same cluster are dependent. crrs R package Vesion 1.1.
+This method extends Fine-Gray proportional hazards model for subdistribution (1999) to accommodate situations where the failure times within a cluster might be correlated since the study subjects from the same cluster share common factors This model directly assesses the effect of covariates on the subdistribution of a particular type of failure in a competing risks setting.
+
+Bingqing Zhou and Aurelien Latouche (2013). crrSC: Competing risks regression for Stratified and Clustered data. R package
+version 1.1. https://CRAN.R-project.org/package=crrSC
+
+**Cox PH by clusters**: Fits a Cox proportional hazards regression model with clusters. coxph function from {survival} R packages
+Therneau T (2015). _A Package for Survival Analysis in S_. version 2.38, <URL: https://CRAN.R-project.org/package=survival>.
 
 
-![](figures/Figure3_Forest1.png) 
+
 
 ```{r}
 
@@ -158,21 +208,36 @@ taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),adjustedby) 
 
 
 
-Complete model
+Full model {data-width=600}
 =================================
 
-#### Complete model
+#### Full model
 
-![](figures/Figure_Forest2.png) 
+
+```{r,fig.width=7,fig.height=5}
+
+forest_model_figura + labs(caption="Model adjusted by Competing Risks Regression for Clustered Data")
+
+# forest_model2_figura
+
+# forest.plot.modelcomplet(dadesmodelcomplet,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
+#   theme_minimal(base_size = 12)
+
+
+# ![](figures/Figure_Forest2.png) 
+
+```
+
+
 
 
 
 About
 =============================
 
-#### Authors and affiliations 
+##### Authors and affiliations 
 
-Authors: Antonio-Arques, Violeta (VA); Franch-Nadal, Josep (JF); Real Gatius, Jordi (JR); Moreno Martinez, Antonio (AM); Orcau Palau, Àngels (AO); Caylà, Joan A (JC)
+Authors: Antonio-Arques, Violeta (VA); Franch-Nadal, Josep (JF); Moreno Martinez, Antonio (AM); Real Gatius, Jordi (JR);  Orcau Palau, Àngels (AO); Caylà, Joan A (JC)
 
 Affiliations
 

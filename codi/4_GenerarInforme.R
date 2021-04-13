@@ -8,15 +8,15 @@ Generar_informe=function(metode="dinamica2") {
   
   if (metode=="dinamica2") {
     output="informe_Cohort_Din"
-    subtitul="Cohorte DINÁMICA: Controles sin reemplazo" }
+    subtitul="Cohorte DINaMICA: Controles sin reemplazo" }
   
   if (metode=="estatica") {
     output="informe_C_estat"
-    subtitul="Cohorte ESTÁTICA" }
+    subtitul="Cohorte ESTaTICA" }
   
   if (metode=="PS") {
     output="informe_C_estatPS"
-    subtitul="Cohorte ESTÁTICA MATCHING por PS" }
+    subtitul="Cohorte ESTaTICA MATCHING por PS" }
   
   rmarkdown::render("./codi/3_analisis_TBC.Rmd", 
                     output_file = paste0(output,Sys.Date()),
@@ -44,7 +44,7 @@ Generar_informe(metode)
 gc()
 ###########   Generar informe 
 metode="dinamica2"
-subtitul="Cohorte DINÁMICA: Controles sin reemplazo"
+subtitul="Cohorte DINaMICA: Controles sin reemplazo"
 rmarkdown::render("./codi/3_analisis_TBC.Rmd", 
                   output_file = paste0("informe_Cohort_Din",Sys.Date()),
                   output_dir = "codi/informes",

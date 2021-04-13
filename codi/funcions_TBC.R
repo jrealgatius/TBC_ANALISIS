@@ -29,7 +29,7 @@ Esquema_ggplot<-function(dt=dt_temp,datainicial="data",datafinal="datafi",id="id
   porca1=lubridate::ymd(porca1)
   porca2=lubridate::ymd(porca2)
   
-  # ConversiÃ³ a Sym per evaluaciÃ³  
+  # Conversio a Sym per evaluar  
   datainicial<-rlang::sym(datainicial)
   datafinal<-rlang::sym(datafinal)
   id<-rlang::sym(id)
@@ -142,7 +142,6 @@ Estima_HR_RCrisk_clusters<-function(dt=dades,cov1="DM_ajust",a="grup2",failcode 
 plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "End of follow-up") {
   
   # dt=dades
-  # cov1=""
   # a="grup"
   # failcode = "Event"
   # cencode = "End of follow-up"
@@ -152,13 +151,13 @@ plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "E
                         cencode = cencode)
  
   model_cuminc$`Control Exitus`<-NULL
-  model_cuminc$`Diabetis Exitus`<-NULL
+  model_cuminc$`Diabetes Exitus`<-NULL
   model_cuminc$`Control Swich group`<-NULL
-  model_cuminc$`Diabetis Swich group`<-NULL
+  model_cuminc$`Diabetes Swich group`<-NULL
   
   p<-survminer::ggcompetingrisks(model_cuminc,conf.int = F,multiple_panels=F, 
                                  xlab="Days",ylab="Cumulative incidence of Tuberculusis",
-                                 title = "Competing risks analysis")
+                                 title = "Cumulative incidence curve")
   
   p$mapping <- aes(x = time, y = est, colour = group, linetype = event)
   p + labs(linetype = "Tuberculosis", colour = "")

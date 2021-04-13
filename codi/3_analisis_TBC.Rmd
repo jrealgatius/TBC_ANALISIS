@@ -168,8 +168,10 @@ if (params$metode=="dinamica2") dir_output<-"dades/output_dinamic2"
 if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
-
 if (params$test) dir_figures<-"figures/test" else dir_figures<-"figures"
+
+if (params$test) dir_results<-"resultats/test" else dir_results<-"resultats"
+
 
 source("funcions_TBC.R")
 
@@ -383,6 +385,8 @@ dades<-dades %>% group_by(case.id) %>%
 
 
 
+
+
 ```
 
 
@@ -397,11 +401,11 @@ flow1<-
   pob_lab2=c("Control population","Control group"),
   pob=c(85919),
   pob1=c(10065,8004),
-  exc1=c(10065-8054),
+  exc1=c(10065-8004),
   exc_lab1=c('Not matching'),
   pob2=c(85919-10065,8004),
   exc2=c(85919-10065-8004),
-  exc_lab2=c('No matching'),
+  exc_lab2=c('Not matching'),
   colors=c('white','grey'),
   forma=c('ellipse','box') )  
 
@@ -409,15 +413,28 @@ flow1
 
 
 flow1 %>% DiagrammeRsvg::export_svg() %>% charToRaw() %>% rsvg::rsvg() %>% 
-  png::writePNG(here::here("figures","flow_chart1.png"))
+  png::writePNG("shiny/figures/flow_chart1.png")
 
 
-flow2<-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
+# flow2<-criteris_exclusio_diagrama(dades,taulavariables = conductor_variables,criteris = "exc",ordre="exc_ordre",etiquetes = "Descripcio",sequencial = T,grups = "grup")
+
+
+# Construir criteris per parells de indidivus
+dt_temp<-dades %>% group_by(case.id) %>% mutate(filtre_exitus=sum(filtre_exitus),
+                                                age=sum(age<18 | is.na(age))) %>% 
+  ungroup() %>% select(CIP,case.id,grup,filtre_exitus,age)
+
+flow2<-criteris_exclusio_diagrama(dt_temp,
+                           taulavariables = conductor_variables, forma=c("box"),
+                           criteris = "exc2",ordre="exc_ordre",
+                           etiquetes = "lab_exc",
+                           sequencial = T,grups = "grup")
 
 flow2
 
 flow2 %>% DiagrammeRsvg::export_svg() %>% charToRaw() %>% rsvg::rsvg() %>% 
-  png::writePNG(here::here("figures","flow_chart2.png"))
+  png::writePNG("shiny/figures/flow_chart2.png")
+
 
 
 ```
@@ -567,7 +584,6 @@ pp
 dev.off()  
 
 
-
 pp<-pp + 
   geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
@@ -691,13 +707,11 @@ res3<-dades %>% split(.$grup2) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="eve
 
 res4<-dades %>% split(.$grup3) %>% map_dfr(~Resum_taxa_incidencia(.x,evento="event_tbc",temps="anys_lliure_tbc",valorevent="1"),.id = "Group") %>% filter(Group!="Control")
 
-res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4) %>% 
+taula_incidencies<-res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4)
+  
+taula_incidencies %>% 
   kable(digits = 2,caption = "Table 3. Incidence of TB in DM and non-DM patients ") %>% kableExtra::kable_styling()
 
-# Salvar taula de taxes
-
-res1 %>% bind_rows(res2) %>% bind_rows(res3) %>% bind_rows(res4) %>% 
-  saveRDS("resultats/incidencies.Rds")
 
 
 
@@ -745,9 +759,6 @@ taula_models_FG<-vector_ajustos %>% purrr::map_df(~
 taula_models<-taula_models_FG %>% bind_rows(taula_models_COX)
 
 
-saveRDS(taula_models,"resultats/taula_models.Rds")
-
-
 # extreure_HR(a="grup",x="",event = "event_tbc",t="temps_tbc",d=dades,taulavariables = conductor_variables,c=cluster) %>% mutate(adjust="Unadjusted")
 # Estima_HR_RCrisk_clusters(dades,"DM_ajust6",a="grup",failcode = "Event",cencode = "End of follow-up") 
 
@@ -766,15 +777,12 @@ mom5.1<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup",failcode = "Event",
 mom5.2<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup2",failcode = "Event",cencode = "End of follow-up") 
 mom5.3<-Estima_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup3",failcode = "Event",cencode = "End of follow-up") 
 
-mom5.1 %>% 
-  bind_rows(mom5.2) %>% bind_rows(mom5.3) %>%  select(-c(method,adjustedby)) %>% 
+HR_subtipus<-mom5.1 %>% bind_rows(mom5.2) %>% bind_rows(mom5.3)
+
+HR_subtipus %>% select(-c(method,adjustedby)) %>% 
   kable(digits = 3,caption = "Hazard ratio de tubercululosis grup diabetis i subtipus versus control") %>% 
   kableExtra::kable_styling() %>% 
   kableExtra::add_footnote(paste0("Method: ",mom5.1$method,". Adjusted by: ",mom5.1$adjustedby))
-
-
-mom5.1 %>% bind_rows(mom5.2) %>% bind_rows(mom5.3) %>% 
-  saveRDS("resultats/HR_subtipus.Rds")
 
 
 ```
@@ -782,15 +790,17 @@ mom5.1 %>% bind_rows(mom5.2) %>% bind_rows(mom5.3) %>%
 ## Figure 1
 
 ```{r figura_CP_RISK, include=T, fig.asp=1, results="asis"}
-
 # Graficar segons riscos competitius
 
-pp<-plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up")
 
-pp + scale_x_continuous(breaks = c(seq(1,3650,730)))
+figure1_survival<-
+  plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up") + 
+  scale_x_continuous(breaks = c(seq(1,3650,730)))
+
+figure1_survival
 
 grDevices::png(here::here("figures","Figure_CI.png"))
-pp + scale_x_continuous(breaks = c(seq(1,3650,730)))
+figure1_survival
 dev.off()
 
 
@@ -824,18 +834,17 @@ forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%
 
 
 
-pp<-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
+forest_figura<-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%CI",upper="Ls95%CI",label_X = "Hazard ratio (95% CI)",
                intercept = 1,nolabels=FALSE,
                nivell = "method",factor1="Model",label_Xvertical="Fit",
                label_Favors="Favors Controls        Favors DM",color = T,add_table = T)
 
-pp
+forest_figura
 
 grDevices::png(here::here("figures","Figure3_Forest1.png"))
-
-pp
-
+forest_figura
 grDevices::dev.off()
+
 
 taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),
                                  adjustedby)
@@ -908,7 +917,7 @@ pp<-ggsurvplot(fit,
                risk.table = FALSE,xscale=365.25,break.x.by = 365.25, conf.int = T)
 
 pp + 
-  xlab("Tiempo en años") + 
+  xlab("Time (years)") + 
   ylab("") 
   
 
@@ -1131,31 +1140,28 @@ descrTable(formula,data=dt_temp,max.xlev = 100,show.n = T,hide.no="NO",simplify=
 
 modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup",failcode = "Event",cencode = "End of follow-up") 
 
-dadesmodel<-modelcomplet$resum_crrsc %>% 
+dadesmodelcomplet<-modelcomplet$resum_crrsc %>% 
   filter(!stringr::str_ends(var,"None")) %>%  # Eliminar categoria None 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
   dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value') 
 
-dadesmodel %>% select(-id) %>% 
+dadesmodelcomplet %>% select(-id) %>% 
   kable(digits = 3) %>% kableExtra::kable_styling()
 
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
+forest.plot.modelcomplet(dadesmodelcomplet,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12)
 
-pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
+forest_model_figura<-forest.plot.modelcomplet(dadesmodelcomplet,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12) + 
   scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) +
   labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")+
   expand_limits(y=c(0.10,150))
 
-pp
+forest_model_figura
 
 grDevices::png(here::here("figures","Figure_Forest2.png"))
-pp
+forest_model_figura
 dev.off()
-
-
-saveRDS(modelcomplet,"resultats/modelcomplet.Rds")
 
 
 
@@ -1177,26 +1183,28 @@ dades<-dades %>% mutate(grup4=case_when(grup2=="DM1" & grup3=="DM Incident"~"Inc
 
 modelcomplet<-model_HR_RCrisk_clusters(dades,"DM_ajust4",a="grup4",failcode = "Event",cencode = "End of follow-up") 
 
-dadesmodel<-modelcomplet$resum_crrsc %>% 
+dadesmodelcomplet2<-modelcomplet$resum_crrsc %>% 
   filter(!stringr::str_ends(var,"None")) %>%  # Eliminar categoria None 
   mutate(id=n():1,Categoria=stringr::str_sub(var,1,30)) %>% 
   dplyr::select(id,Categoria,HR,`Li95%CI`,`Ls95%CI`,'p-value')
 
-dadesmodel %>% select(-id) %>% 
+dadesmodelcomplet2 %>% select(-id) %>% 
   kable(digits = 3) %>% kableExtra::kable_styling()
 
 
-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
+forest.plot.modelcomplet(dadesmodelcomplet2,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12)
 
-pp<-forest.plot.modelcomplet(dadesmodel,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
+forest_model2_figura<-forest.plot.modelcomplet(dadesmodelcomplet2,label="Categoria",mean="HR",lower="Li95%CI",upper="Ls95%CI",label_X="HR (95% CI)", intercept=1,add_table = T)+
   theme_minimal(base_size = 12) + 
   scale_y_continuous(trans = "log", breaks = c(0.5,1,3,10)) +
   labs(title = "Forest plot of hazard ratios", subtitle = "Complete model")
   
 
-pp
+forest_model2_figura
 
+
+# 
 
 
 ```
@@ -1207,8 +1215,18 @@ pp
 # Salvaré taules de resultats i figures per tal de després graficar-les en format Dashboard
 
 # Analisis de sensibilitat 
+if (params$test) output_shiny<-"output_test.RData" else output_shiny<-"output.RData"
 
-
+save(taula_models,
+     HR_subtipus,
+     figure1_survival,
+     forest_figura,
+     taula_incidencies,
+     dadesmodelcomplet,
+     forest_model_figura,
+     dadesmodelcomplet2,
+     forest_model2_figura,
+  file = here::here("codi/shiny",output_shiny))
 
 
 
