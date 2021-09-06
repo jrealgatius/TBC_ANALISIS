@@ -38,7 +38,7 @@ if (params$metode=="dinamica") dir_output<-"dades/output_dinamic"
 if (params$metode=="estatica") dir_output<-"dades/output"
 if (params$metode=="PS") dir_output<-"dades/output_PS"
 
-load(here::here(dir_output,"output2.Rdata"))
+load(here::here(dir_output,"output3.Rdata"))
 
 
 
@@ -279,7 +279,10 @@ dir.create(here::here("dades/output_dinamic2"))
 dir.create(here::here("dades/output_PS"))
 
 
-save(dt_ecap,dt_agencia, file=here::here(dir_output,"output4.Rdata"))
+save(dt_ecap,dt_agencia, file=here::here(dir_output,"output5.Rdata"))
+
+saveRDS(dt_ecap,here::here("dades/preparades","dt_ecap.Rds"))
+saveRDS(dt_agencia,here::here("dades/preparades","dt_agencia.Rds"))
 
 ```
 

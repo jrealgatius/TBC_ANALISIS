@@ -58,7 +58,9 @@ Column {.sidebar data-width=300}
 
 The source code is available at [github/jrealgatius](https://github.com/jrealgatius/TBC_ANALISIS)
 
-by [Jordi Real](https://github.com/jrealgatius/CV/blob/master/Jordi%20Real%E2%80%99s%20CV.pdf) & Ray Puig
+by [Jordi Real](https://jrealgatius.github.io/CV/JReal_CV.html) & [Ray Puig](https://orcid.org/0000-0002-7536-2976)
+
+
 
 jreal@idiapjgol.info 
 

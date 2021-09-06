@@ -366,4 +366,136 @@ forest.plot.modelcomplet<-function(dadesmodel=dadesmodel,label="Categoria",mean=
 
 
 
+# Formateig ----------------
+# Calcul de variables noves edat etc..
+
+Formateig_dades<-function(dt=dades) {
+
   
+    dt<-netejar.noms.variables(dt) %>% as_tibble()
+    dt<-dt %>% netejar_espais()
+  
+  
+    # Recode dates / factorització 
+    dt<-dt %>% mutate_at(vars(starts_with("P_G_")), ~if_else(is.na(.),"No","Si")) # Vacunes
+    
+    dt<-dt %>% mutate_at(vars(starts_with("FP.")), ~if_else(is.na(.),"No","Si")) # Farmacs
+    
+    dt<-dt %>% mutate(PS=if_else(is.na(PS),0,1))
+    
+    dt<-dt %>% factoritzar.NO.YES("factoritzarSINO",taulavariables=conductor_variables)
+    
+    # Recode rangs de valors fora de l'interval a missings Reals (missings de valors reals)
+    
+    dt<-recode_to_missings(dt,taulavariables = conductor_variables,rang="rang_valid")
+    
+    # Calcul de dies i anys lliure de TBC 
+    dt<-dt %>% mutate (dies_lliure_tbc=as.numeric(temps_tbc),anys_lliure_tbc=dies_lliure_tbc/365.25)
+    
+    # Numero de vegada que apareix un CIP
+    dt<-dt %>% group_by(CIP) %>% arrange(dtindex) %>% mutate(seq=seq(1:n())) %>% ungroup()
+    
+    # Dades basals (Prevalents vs incidents )
+    dt<-dt %>% mutate(any2007=ifelse(anyindex<=2007,"Si","No"))
+    
+    # Tractament  (Sense tractament)
+    dt<-
+      dt %>% mutate(FP_TRACTAMENT_AD=case_when(
+        FP.ADO=="No" & FP.ADO_ALT=="No" & FP.ADO_MET=="No" & FP.ADO_SU=="No" & FP.INSU=="No"~"Sense ADO ni Insu",
+        (FP.ADO=="Si" | FP.ADO_ALT=="Si" | FP.ADO_MET=="Si" | FP.ADO_SU=="Si") & FP.INSU=="No"~"Algun ADO",
+        FP.INSU=="Si"~"Insulina")) 
+    
+    # VACUNACIO
+    dt<-dt %>% mutate(VACUNA= if_else(P_G_60.valor == "Si" | 
+                                              P_G_AD.valor== "Si" | 
+                                              P_G_AR.valor=="Si" | 
+                                              P_G_NE.valor=="Si","Si","No",missing = "No"))
+    # Etiquetes de valors
+    dt<-etiquetar_valors(dt, variables_factors= conductor_variables,fulla="etiquetes")
+    # Recode paisos dos agrupacions
+    dt<-etiquetar_valors(dt,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta2",missings = TRUE,new_vars = T,sufix = ".2")
+    dt<-etiquetar_valors(dt,conductor_variables,fulla = "nacionalitats",camp_etiqueta = "etiqueta3",missings = TRUE)
+    
+    # Recode missings --> Espanya
+    dt<-dt %>% 
+      mutate(descNacionalitat.2=as.character(descNacionalitat.2)) %>% 
+      mutate(descNacionalitat.2=if_else(descNacionalitat.2=="None","1. Espanya",descNacionalitat.2))
+    
+    # Recode visites - missings--0
+    dt<-dt %>% mutate_at(vars(starts_with("visites_")), ~ifelse(is.na(.),0,.)) 
+    
+    # # Relevel 
+    # dades2<- dades2 %>% mutate(grup=relevel(grup, "Control"))
+    # Recodificar
+    dt<-recodificar(dt,conductor_variables,"recode")
+    #
+    dt<-recodificar2(dt,conductor_variables,"recode2",missings = T,prefix="cat")
+    
+    # Recodificar en quartils i + categoria missings
+    vars<-c("IMC.valor","PAD.valor","PAS.valor","visites_TOT","visites_MG")
+    dt<-dt %>% 
+      mutate_at(vars,.funs = list(CATQ=~Hmisc::cut2(.,g=3,na.rm = T))) %>% 
+      mutate_at(vars(ends_with("_CATQ")), ~ifelse(!is.na(.),levels(.),"None") %>% as.factor())
+    
+    
+    # Mana DMT2
+    dt<-dt %>% mutate(grup2=case_when(grup=="Control"~"Control",
+                                            DG.DM1_cat=="Yes"~"DM1",
+                                            DG.DM2_cat=="Yes"~"DM2"))
+    # Mana DMT2 en cas de cap DG.
+    dt<-dt %>% mutate (grup2=if_else(is.na(grup2),"DM2",grup2))
+    
+    # DM Prevalent/incident
+    dt<-dt %>% 
+      mutate(grup3=case_when(grup=="Diabetes" & any2007=="Si"~ "DM Prevalent",
+                             grup=="Diabetes" & any2007=="No"~ "DM Incident", 
+                             grup=="Control"~"Control")) 
+    
+  }
+
+
+Formateig_agencia<-function(dt) {
+  
+  #variable.names(dt_plana_agencia)
+  dt<-netejar_espais(dt)
+  dt<-netejar.noms.variables(dt)
+  
+  # Repetits
+  N_CIP<-dt%>% filter(repe>1)%>% select(CIP)
+  
+
+  #RECODES / CALCULS     
+  dt<-dt %>% mutate(MORT2=if_else(is.na(MORT),0,1))
+  
+  # Variable indicadora dades TBC provinents agencia
+  dt<-dt %>% mutate(dt_agencia=ifelse(is.na(NUM_REG),0,1))
+  
+  # Factoritzar
+  vars_factor<-extreure.variables("factoritzar",conductor_agencia)
+  dt<-dt %>% mutate_at(vars_factor,as.factor)
+  
+  # Etiquetar valors
+  dt<-etiquetar_valors(dt=dt,variables_factors=conductor_agencia,fulla="etiquetes",camp_etiqueta="etiqueta2")
+  
+}
+
+
+roc_curve<-function(dt=dades,valor="HBA1c.valor",event="event_tbc"){
+  
+  # dt=dades
+  # valor="HBA1c.valor"
+  # event="event_tbc"
+  
+  dt_temp<-dt %>% select(valor=valor,event=event) %>% na.omit()
+  
+  g <- pROC::roc(event ~ valor, data = dt_temp)
+  auc=pROC::auc(g)
+  auc_ci=pROC::ci(g) 
+  
+  ggplot(dt_temp, aes(d = event, m = valor)) + 
+    plotROC::geom_roc(n.cuts = 0) +
+    annotate("text", x = .75, y = .25, label = paste("AUC:",round(auc_ci[2],2), "; 95 CI%:",round(auc_ci[1],2),"-",round(auc_ci[3],2)))
+  
+  
+}
+

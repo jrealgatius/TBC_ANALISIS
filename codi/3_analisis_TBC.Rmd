@@ -16,7 +16,7 @@ output:
 params:
   metode: "dinamica2"  # "dinamica" / "dinamica2" / "estatica" / "PS" 
   subtitul: ""
-  test: TRUE # TRUE
+  test: FALSE # TRUE
 
 title: "Diabetes y Tuberculosis en Ciutat Vella (Barcelona). Estudio longitudinal de la asociación de las dos enfermedades en un distrito con alta prevalencia de tuberculosis"
 subtitle: "`r params$subtitul`"
@@ -58,6 +58,11 @@ subtitle: "`r params$subtitul`"
 
 
 ## Actualizaciones 
+
+
+>17/04/2021
+
+&check; Descriptiva comparativa de Diabetics en funció del tractament  (TAULA 2.1) <br/>
 
 
 >16/9/2020
@@ -296,8 +301,6 @@ dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "D
 # dades %>% distinct(CIP)
 
 
-
-
 ```
 
 
@@ -447,6 +450,12 @@ dades<-dades %>% criteris_exclusio(conductor_variables,"exc")
 # Etiquetació de variables  -----------
 dades<-etiquetar(dades,taulavariables = conductor_variables,camp_descripcio = "Descripcio")
 
+# table(dades$visites_TOT_CATQ)
+# table(dades$visites_TOT)
+# table(dades$visites_MG)
+# 
+# table(dades$visites_MG,dades$grup)
+
 ```
 
 
@@ -522,7 +531,7 @@ dev.off()
 
 # Truncamiento 
 # Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
-pp<- pp + 
+pp2<- pp + 
   geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
@@ -533,11 +542,26 @@ pp<- pp +
        shape="")
 
 
-pp
+pp2
 
 grDevices::png(here::here(dir_figures,"Figure2_esquema.png"))
-pp
+pp2
 dev.off()
+
+
+fig1<-pp + 
+  geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
+  geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
+  scale_shape(solid=FALSE) +
+  annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
+  labs(title=NULL,
+       subtitle = NULL,
+       color="Group:",
+       shape="")
+
+ggsave("Figure1.png",plot=fig1,device="png", units="in", width=7, height=7, dpi=300)
+
+
 
 ```
 
@@ -680,12 +704,26 @@ descrTable(formu,data=dades,show.p.overall = T,show.n = T, hide.no = T,hide = "N
 ## TABLE 2. Baseline characteristics of patients in diabetic cohort 
 
 ```{r, include=TRUE}
-
 dt_temp<-dades %>% filter(grup=="Diabetes")
 
 formu<-formula_compare(x="table2",y="",taulavariables = conductor_variables)
 descrTable(formu,data=dt_temp,show.p.overall = F,show.n = T, hide.no = T,hide = "No") %>% 
   export2md(caption = "Table  2. Baseline characteristics of patients in diabetic cohort")
+```
+
+## TABLE 2.2. Distribució de tractament farmacològic de la diabetis en funció de característiques.
+
+```{r, include=TRUE}
+
+vars<-c("sexe","age","DM_anys","grup2","grup3",extreure.variables("DM_ajust4",conductor_variables))
+
+formu<-formula_vector(vars,y="FP_TRACTAMENT_AD")
+
+
+descrTable(formu,data=dt_temp,show.p.overall = T,show.n = T, hide.no = T,hide = "No",byrow = T) %>% 
+  export2md(caption = "Table  2. Baseline characteristics of patients in diabetic cohort by DM Treatment")
+
+
 
 ```
 
@@ -795,7 +833,7 @@ HR_subtipus %>% select(-c(method,adjustedby)) %>%
 
 figure1_survival<-
   plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up") + 
-  scale_x_continuous(breaks = c(seq(1,3650,730)))
+  scale_x_continuous(breaks = c(seq(1,3650,730))) +theme_light() +theme(legend.position="top")
 
 figure1_survival
 
@@ -803,6 +841,8 @@ grDevices::png(here::here("figures","Figure_CI.png"))
 figure1_survival
 dev.off()
 
+
+ggsave("Figure2.png",plot=figure1_survival,device="png", units="in", width=7, height=7, dpi=300)
 
 ```
 
@@ -848,6 +888,8 @@ grDevices::dev.off()
 
 taula_models %>% transmute(Model=stringr::str_remove(Model,"Model"),
                                  adjustedby)
+
+
 
 
 
@@ -1163,6 +1205,9 @@ grDevices::png(here::here("figures","Figure_Forest2.png"))
 forest_model_figura
 dev.off()
 
+
+
+ggsave("Figure3.png",plot=forest_model_figura ,device="png", units="in", width=7, height=7, dpi=300)
 
 
 ```
