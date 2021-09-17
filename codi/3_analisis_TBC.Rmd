@@ -468,7 +468,7 @@ dades<-dades %>% mutate(
   datafi=if_else(datafi>lubridate::ymd(20181231),lubridate::ymd(20181231),datafi),
   censura_tipo=case_when(datafi==lubridate::ymd(20181231)~"End of follow-up",
                      datafi<lubridate::ymd(20181231) & exitus==1~"Exitus",
-                     datafi<lubridate::ymd(20181231) & exitus==0 ~"Swich group"))
+                     datafi<lubridate::ymd(20181231) & exitus==0 ~"Switch group"))
 
 # Calculo estatus
 dades<-dades %>% mutate(status=if_else(event_tbc==1,"Event",censura_tipo))
@@ -487,13 +487,13 @@ dt_temp<-dades %>% filter(dtindex>20070101) %>%
             data0=lubridate::ymd(20070101),Sexo=sexe,dNaixement,
             lab_SexEdat=stringr::str_c(Sexo,lubridate::year(dNaixement)-lubridate::year(dtindex)),
             EV.TBC_cat,event_tbc,censura_tipo) 
-# Trio un parell per tipus de censura (Swich_group,Exitus,End of follow-up)
+# Trio un parell per tipus de censura (Switch_group,Exitus,End of follow-up)
 dt_temp1 <- dt_temp %>% 
   group_by(id) %>% filter(sum(censura_tipo=="End of follow-up")>0) %>% ungroup(id) %>% 
   mostreig_ids("id",2,llavor)
 
 dt_temp2 <- dt_temp %>% 
-  group_by(id) %>% filter(sum(censura_tipo=="Swich group")>0) %>% ungroup(id) %>% 
+  group_by(id) %>% filter(sum(censura_tipo=="Switch group")>0) %>% ungroup(id) %>% 
   mostreig_ids("id",2,llavor)
 
 dt_temp3 <- dt_temp %>% group_by(id) %>% filter(sum(censura_tipo=="Exitus")>0) %>% ungroup(id) %>% 
@@ -528,6 +528,7 @@ dev.off()
 
 
 ```{r esquema2, include=TRUE}
+
 
 # Truncamiento 
 # Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
