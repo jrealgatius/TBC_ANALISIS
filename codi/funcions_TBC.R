@@ -152,8 +152,8 @@ plot_cmprisk_cuminc<-function(dt=dades,a="grup2",failcode = "Event",cencode = "E
  
   model_cuminc$`Control Exitus`<-NULL
   model_cuminc$`Diabetes Exitus`<-NULL
-  model_cuminc$`Control Swich group`<-NULL
-  model_cuminc$`Diabetes Swich group`<-NULL
+  model_cuminc$`Control Switch group`<-NULL
+  model_cuminc$`Diabetes Switch group`<-NULL
   
   p<-survminer::ggcompetingrisks(model_cuminc,conf.int = F,multiple_panels=F, 
                                  xlab="Days",ylab="Cumulative incidence of Tuberculusis",

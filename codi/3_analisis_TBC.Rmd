@@ -507,6 +507,8 @@ dt_temp<-dt_temp1 %>% bind_rows(dt_temp2) %>% bind_rows(dt_temp3) %>% arrange(de
 # dt_temp <- dt_temp %>% mostreig_ids(id="id",n_mostra = 5,set_seed = llavor) %>% 
 #   mutate(num=1:n(),id=as.factor(id))  # Generar id factor correlatiu
 
+
+
 pp<-dt_temp %>% 
   Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
   labs(title="Figura 1. Sampling and follow-up scheme",
@@ -516,13 +518,21 @@ pp<-dt_temp %>%
   ylab("Subjects") +
   xlab("Time")
 
+
 pp
 
-grDevices::png(here::here(dir_figures,"Figure1_esquema.png"))
+# Incrementar la resolució * 5
+
+resfactor<-5
+
+grDevices::png(here::here(dir_figures,"Figure1_esquema.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 
 pp
 
 dev.off()
+
+
 
 ```
 
@@ -545,9 +555,12 @@ pp2<- pp +
 
 pp2
 
-grDevices::png(here::here(dir_figures,"Figure2_esquema.png"))
+grDevices::png(here::here(dir_figures,"Figure2_esquema.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 pp2
 dev.off()
+
+
 
 
 fig1<-pp + 
@@ -560,9 +573,10 @@ fig1<-pp +
        color="Group:",
        shape="")
 
-ggsave("Figure1.png",plot=fig1,device="png", units="in", width=7, height=7, dpi=300)
+ggsave(here::here(dir_figures,"Figure1.png"),plot=fig1,device="png", units="in", 
+       width=7, height=7, dpi=300*2)
 
-
+fig1
 
 ```
 
@@ -604,9 +618,12 @@ pp<-dt_temp %>%
 
 pp
 
-grDevices::png(here::here(dir_figures,"Figure1.2_esquema.png"))
+grDevices::png(here::here(dir_figures,"Figure1.2_esquema.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 pp
 dev.off()  
+
+
 
 
 pp<-pp + 
@@ -620,7 +637,8 @@ pp<-pp +
        shape="")
 
 pp
-grDevices::png(here::here(dir_figures,"Figure2.2_esquema.png"))
+grDevices::png(here::here(dir_figures,"Figure2.2_esquema.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 pp
 dev.off()  
 
@@ -831,19 +849,19 @@ HR_subtipus %>% select(-c(method,adjustedby)) %>%
 ```{r figura_CP_RISK, include=T, fig.asp=1, results="asis"}
 # Graficar segons riscos competitius
 
-
 figure1_survival<-
   plot_cmprisk_cuminc(dt=dades,a="grup",failcode = "Event",cencode = "End of follow-up") + 
   scale_x_continuous(breaks = c(seq(1,3650,730))) +theme_light() +theme(legend.position="top")
 
 figure1_survival
 
-grDevices::png(here::here("figures","Figure_CI.png"))
+grDevices::png(here::here("figures","Figure_CI.png"),
+               res = 72*resfactor*2, height=640*resfactor*2, width=640*resfactor*2)
 figure1_survival
 dev.off()
 
 
-ggsave("Figure2.png",plot=figure1_survival,device="png", units="in", width=7, height=7, dpi=300)
+ggsave("Figure2.png",plot=figure1_survival,device="png", units="in", width=7, height=7, dpi=600)
 
 ```
 
@@ -882,7 +900,8 @@ forest_figura<-forest.plot.HR(taula_models,label="var",mean="HR",lower = "Li95%C
 
 forest_figura
 
-grDevices::png(here::here("figures","Figure3_Forest1.png"))
+grDevices::png(here::here("figures","Figure3_Forest1.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 forest_figura
 grDevices::dev.off()
 
@@ -1202,13 +1221,14 @@ forest_model_figura<-forest.plot.modelcomplet(dadesmodelcomplet,label="Categoria
 
 forest_model_figura
 
-grDevices::png(here::here("figures","Figure_Forest2.png"))
+grDevices::png(here::here("figures","Figure_Forest2.png"),
+               res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 forest_model_figura
 dev.off()
 
 
 
-ggsave("Figure3.png",plot=forest_model_figura ,device="png", units="in", width=7, height=7, dpi=300)
+ggsave("Figure3.png",plot=forest_model_figura ,device="png", units="in", width=7, height=7, dpi=600)
 
 
 ```
