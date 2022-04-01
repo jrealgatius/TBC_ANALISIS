@@ -511,7 +511,7 @@ dt_temp<-dt_temp1 %>% bind_rows(dt_temp2) %>% bind_rows(dt_temp3) %>% arrange(de
 
 pp<-dt_temp %>% 
   Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
-  labs(title="Figura 1. Sampling and follow-up scheme",
+  labs(title="Figure 1. Sampling and follow-up scheme",
        subtitle = "5 pairs of individuals by age and sex",
        color="Group:",
        shape="") +
@@ -529,17 +529,19 @@ grDevices::png(here::here(dir_figures,"Figure1_esquema.png"),
                res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 
 pp
-
 dev.off()
 
+# Salvar a baixa resolució per dashboard
+grDevices::png(here::here("codi/shiny/figures","Figure1_esquema.png"))
+
+pp
+dev.off()
 
 
 ```
 
 
-```{r esquema2, include=TRUE}
-
-
+```{r esquema2.2, include=TRUE}
 # Truncamiento 
 # Evento TBC, Exitus, fin de seguimiento (), o canvio de grupo (Control). Controles sin reemplazamiento. 
 pp2<- pp + 
@@ -547,7 +549,7 @@ pp2<- pp +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
   annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
-  labs(title="Figura 1. Sampling and follow-up scheme",
+  labs(title="Figure 2. Sampling and follow-up scheme",
        subtitle = "5 pairs of individuals by age and sex",
        color="Group:",
        shape="")
@@ -560,8 +562,16 @@ grDevices::png(here::here(dir_figures,"Figure2_esquema.png"),
 pp2
 dev.off()
 
+# Salvar a baixa resolució
+grDevices::png(here::here("codi/shiny/figures","Figure2_esquema.png"))
+pp2
+dev.off()
 
 
+```
+
+
+```{r esquema2, include=TRUE}
 
 fig1<-pp + 
   geom_segment(aes(x =dtindex, xend=datafi, y =num, yend = num ),size=1) +
@@ -576,7 +586,8 @@ fig1<-pp +
 ggsave(here::here(dir_figures,"Figure1.png"),plot=fig1,device="png", units="in", 
        width=7, height=7, dpi=300*2)
 
-fig1
+
+
 
 ```
 
@@ -608,7 +619,7 @@ dt_temp<-dt_temp %>% arrange(desc(dtindex)) %>%
 
 pp<-dt_temp %>% 
   Esquema_ggplot(datainicial= "data0",  datafinal="dtindex",  id="num",  grup_shape=NA,  grup_color = "Grupo",  lim_inf=-Inf,  lim_sup="20181231",lab_y="lab_SexEdat") +
-  labs(title="Figura 3. Sampling and follow-up scheme",
+  labs(title="Figure 3. Sampling and follow-up scheme",
        subtitle = "2 pairs of individuals by age and sex",
        color="Group:",
        shape="") +
@@ -618,11 +629,16 @@ pp<-dt_temp %>%
 
 pp
 
+# Salvar en alta resolució
 grDevices::png(here::here(dir_figures,"Figure1.2_esquema.png"),
                res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 pp
 dev.off()  
 
+# Salvar en baixa resolució
+grDevices::png(here::here("codi/shiny/figures","Figure1.2_esquema.png"))
+pp
+dev.off()  
 
 
 
@@ -631,16 +647,23 @@ pp<-pp +
   geom_point(aes(datafi, num, shape=censura_tipo),size=2.5,solid=FALSE)+
   scale_shape(solid=FALSE) +
   annotate("text", x = lubridate::ymd("20171201"), y = 0.5, label = "End of follow-up",size=3,fontface="bold") +
-  labs(title="Figura 4. Sampling and follow-up scheme",
+  labs(title="Figure 4. Sampling and follow-up scheme",
        subtitle = "2 pairs of individuals by age and sex",
        color="Group:",
        shape="")
 
 pp
+
 grDevices::png(here::here(dir_figures,"Figure2.2_esquema.png"),
                res = 72*resfactor, height=640*resfactor, width=640*resfactor)
 pp
 dev.off()  
+
+# Salvar en baixa resolució
+grDevices::png(here::here("codi/shiny/figures","Figure2.2_esquema.png"))
+pp
+dev.off()  
+
 
 
 ```

@@ -51,7 +51,7 @@ Column {.sidebar data-width=300}
 <br/>
 
 
-### A cohort study in an inner district with high incidence of tuberculosis in Barcelona
+### Subjects with diabetes mellitus are at increased risk for developing tuberculosis: a cohort study in an inner-city district of Barcelona (Spain)
 
 
 <br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
@@ -239,18 +239,34 @@ About
 
 ##### Authors and affiliations 
 
-Authors: Antonio-Arques, Violeta (VA); Franch-Nadal, Josep (JF); Moreno Martinez, Antonio (AM); Real Gatius, Jordi (JR);  Orcau Palau, Àngels (AO); Caylà, Joan A (JC)
 
-Affiliations
+**Authors**: Antonio-Arques, Violeta (VA)^1,2^ ; Franch-Nadal, Josep^1,3,4^; Moreno-Martinez, Antonio (AM)^5,6^; Real Gatius, Jordi(JR)^1,4^; Orcau, Àngels(AO)^6,7^; Mauricio, Dídac (DM)^1,4,8,9^; Mata-Cases, Manel (MM)^1,4,10^; Julve, Josep (JJ)^4,11^; Navas Mendez, Elena (EN) ^12^; Puig Treserra, Rai (RP)^1^; Barrot de la Puente, Joan (JB)^1,13^; Millet, Joan-Pau (JP)^6,7^; Del Val García, Jose Luís (JLV)^12,14^; Vlacho, Bogdan (BV)^1; Caylà, Joan  A (JC)^15^
 
-- DAP-Cat group, Unitat de Suport a la Recerca Barcelona, Fundació Institut Universitari per a la recerca a l'Atenció Primària de Salut Jordi Gol i Gurina (IDIAP Jordi Gol), Barcelona, Spain;
-- CIBER of Diabetes and Associated Metabolic Diseases (CIBERDEM), Instituto de Salud Carlos III (ISCIII), Spain 
-- Primary Health Care Center Raval Sud, Gerència d’Atenció Primaria, Institut Català de la Salut, Barcelona, Spain
+
+**Affiliations**
+
+1. DAP-Cat group, Unitat de Suport a la Recerca Barcelona, Fundació Institut Universitari per a la recerca a l'Atenció Primària de Salut Jordi Gol i Gurina (IDIAPJGol), 08007 Barcelona, Spain
+2. Primary Health Care Center Bordeta Magòria, Gerència d’Atenció Primària Barcelona Ciutat, Institut Català de la Salut, 08014 Barcelona, Spain
+3. Primary Health Care Center Raval Sud, Gerència d’Atenció Primària Barcelona Ciutat, Institut Català de la Salut, 08028 Barcelona, Spain
+4. CIBER of Diabetes and Associated Metabolic Diseases (CIBERDEM), Instituto de Salud Carlos III (ISCIII), 28029 Madrid, Spain
+5. Department of Infectious Diseases, Hospital Clínic de Barcelona, 08036 Barcelona, Spain.
+6. CIBER of Epidemiology and Public Health (CIBERESP), Instituto de Salud Carlos III (ISCIII), 28029 Madrid, Spain.
+7. Epidemiology Service, Agència de Salut Pública de Barcelona, 08023 Barcelona, Spain
+8. Department of Endocrinology and Nutrition, Hospital Universitari de la Santa Creu i Sant Pau, 08041 Barcelona, Spain
+9. Department of Medicine, University of Vic - Central University of Catalonia, 08500 Vic, Spain 
+10. Primary Health Care Center La Mina, Gerència d’Atenció Primària Barcelona Ciutat, Institut Català de la Salut, 08930 Barcelona, Spain
+11. Institut de Recerca de l’Hospital de la Santa Creu i Sant Pau, 08041 Barcelona, Spain
+12. Fundació Institut Universitari per a la recerca a l'Atenció Primària de Salut Jordi Gol i Gurina (IDIAPJGol), 08007 Barcelona, Spain.
+13. Primary Health Care Center Doctor Jordi Nadal, Gerència d'Atenció Primària Girona Ciutat, Institut Catala de la Salut, 17190 Salt, Spain.
+14.  Unitat d'Avaluació, Sistemes d'informació i Qualitat, Gerència d’Àmbit d’Atenció Primària Barcelona Ciutat, Institut Català de la Salut, 08029 Barcelona, Spain
+15.  Foundation of the Tuberculosis Research Unit of Barcelona, Barcelona, Spain
+
 
 
 Correspondence: josep.franch@gmail.com; jreal@idiapjgol.info 
 
 
-Author Contributions: Conceptualisation: AM, AO and CJ; methodology and design: JR JF; formal analysis: JR; resources and data curation: VA and JR.; writing—original draft preparation. VA, JC,AM ; writing—review and editing: VA, JF, JR, AM; supervision: JF and VA; project administration. JF and AO; funding acquisition: AM
+**Author Contributions**: VA, JC, JF, JR, AO and AM participated in the study design.AO, JLV and JR worked on data collection. JR, VA, EN, RP and JF, performed all statistical work. VA, JF and JC were major contributors in writing the manuscript. MM, DM,JJ, JP, JB and AM reviewed and corrected the manuscript. BV contributed to prepare the manuscript according to the journal policies.  
+
 
 
